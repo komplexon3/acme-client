@@ -1,0 +1,9 @@
+version: "3"
+services:
+  pebble:
+    image: komplexon3/pebble
+    ports:
+      - "14000:14000"
+      - "15000:15000"
+    environment:
+      - PEBBLE_WFE_NONCEREJECT=0
