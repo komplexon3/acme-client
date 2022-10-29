@@ -2,10 +2,15 @@ package main
 
 import (
 	"os"
+	"strings"
+	"time"
 
 	flags "github.com/jessevdk/go-flags"
+	"github.com/miekg/dns"
 
 	gin "github.com/gin-gonic/gin"
+	"github.com/sirupsen/logrus"
+	ginlogrus "github.com/toorop/gin-logrus"
 )
 
 /*
@@ -40,6 +45,14 @@ var config struct {
 }
 
 func main() {
+
+	loggerBase := logrus.New()
+
+	if len(os.Args) == 1 {
+		println("Usage: acme {dns01 | http01} [options]")
+		os.Exit(1)
+	}
+
 	var mode ChallengeType = ChallengeType(os.Args[1])
 	var parser = flags.NewParser(&config, flags.Default)
 
@@ -60,10 +73,48 @@ func main() {
 		}
 	}
 
+	log := loggerBase.WithFields(logrus.Fields{
+		"mode":   mode,
+		"dir":    config.Dir,
+		"Record": config.Record,
+		"Domain": strings.Join(config.Domain, " "),
+		"Revoke": config.Revoke,
+	})
+
 	// setting up gin (test...)
-	r := gin.Default()
-	r.GET("/ping", func(c *gin.Context) {
+	httpSererLogger := log.WithField("server", "http")
+	httpServer := gin.New()
+	httpServer.Use(ginlogrus.Logger(httpSererLogger), gin.Recovery())
+	httpServer.GET("/ping", func(c *gin.Context) {
 		c.String(200, "pong")
 	})
-	r.Run() // listen and serve on
+	go httpServer.Run() // listen and serve on
+
+	// setting up and starting the DNS server
+	dnsServer := &dns.Server{
+		Addr: ":10053",
+		Net:  "udp",
+	}
+
+	go dnsServer.ListenAndServe()
+
+	// create and start shutdown server
+	// when called, it will simply call os.Exit(0) after a 1s delay
+	shutdownChannel := make(chan int, 1)
+	shutdownServerLogger := log.WithField("server", "shutdownServer")
+	shutdownServer := gin.New()
+	shutdownServer.Use(ginlogrus.Logger(shutdownServerLogger), gin.Recovery())
+	shutdownServer.GET("/shutdown", func(c *gin.Context) {
+		shutdownServerLogger.Info("Shutdown server called")
+		c.String(200, "Shutting down...")
+		shutdownChannel <- 0
+	})
+	go shutdownServer.Run(":5003")
+
+	code := <-shutdownChannel
+	close(shutdownChannel)
+	log.Info("Shutting down...")
+	dnsServer.Shutdown()
+	time.Sleep(1 * time.Second)
+	os.Exit(code)
 }
