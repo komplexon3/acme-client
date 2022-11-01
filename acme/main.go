@@ -37,6 +37,21 @@ const (
 	HTTP01 ChallengeType = "http01"
 )
 
+type acmeEndpoints struct {
+	NewNonce   string `json:"newNonce"`
+	NewAccount string `json:"newAccount"`
+	NewOrder   string `json:"newOrder"`
+	NewAuthz   string `json:"newAuthz"`
+	RevokeCert string `json:"revokeCert"`
+	KeyChange  string `json:"keyChange"`
+}
+
+type acmeConfig struct {
+	dir          string
+	endpoints    acmeEndpoints
+	currentNonce string
+}
+
 var config struct {
 	Dir    string   `long:"dir" description:"Directory URL of the ACME server that should be used." required:"true"`
 	Record string   `long:"record" description:"IPv4 address which must be returned by your DNS server for all A-record queries." required:"true"`
