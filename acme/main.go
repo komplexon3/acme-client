@@ -1,5 +1,10 @@
 package main
 
+/* TODO: IMPORTANT
+* remove jose library and write your own! Only use it to get everyting working
+* then use your own!
+ */
+
 import (
 	"os"
 	"strings"
@@ -50,6 +55,7 @@ type acmeConfig struct {
 	dir          string
 	endpoints    acmeEndpoints
 	currentNonce string
+	logger       *logrus.Logger
 }
 
 var config struct {
