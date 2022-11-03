@@ -58,6 +58,7 @@ type acmeConfig struct {
 	currentNonce string
 	logger       *logrus.Logger
 	accountURL   string
+	orders       []order
 	privateKey   *ecdsa.PrivateKey
 }
 

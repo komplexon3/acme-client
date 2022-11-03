@@ -27,7 +27,8 @@ func (acme *acmeConfig) doJosePostRequest(endpoint string, protected map[jose.He
 
 func (acme *acmeConfig) josePostRequest(endpoint string, protected map[jose.HeaderKey]interface{}, payload interface{}) (*http.Request, error) {
 	var body []byte
-	if body, err := json.Marshal(payload); err != nil {
+	var err error
+	if body, err = json.Marshal(payload); err != nil {
 		return nil, errors.New("Error marshalling payload " + err.Error())
 	}
 

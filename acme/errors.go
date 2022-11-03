@@ -1,4 +1,4 @@
-package acme_errors
+package main
 
 const (
 	ACCOUNTDOESNOTEXIST     = "urn:ietf:params:acme:error:t"
@@ -27,7 +27,7 @@ const (
 	USERACTIONREQUIRED      = "urn:ietf:params:acme:error:userActionRequired"
 )
 
-func GetErrorDetails(err string) string {
+func getErrorDetails(err string) string {
 	switch err {
 	case ACCOUNTDOESNOTEXIST:
 		return "The request specified an account that does not exist"
@@ -55,7 +55,7 @@ func GetErrorDetails(err string) string {
 		return "The request must include a value for the 'externalAccountBinding' field"
 	case INCORRECTRESPONSE:
 		return "Response received didn't match the challenge's requirements"
-	case INCORRECTRESPONSE:
+	case INVALIDCONTACT:
 		return "A contact URL for an account was invalid"
 	case MALFORMED:
 		return "The request message was malformed"
