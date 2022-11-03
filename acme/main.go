@@ -6,6 +6,7 @@ package main
  */
 
 import (
+	"crypto/ecdsa"
 	"os"
 	"strings"
 	"time"
@@ -56,6 +57,8 @@ type acmeConfig struct {
 	endpoints    acmeEndpoints
 	currentNonce string
 	logger       *logrus.Logger
+	accountURL   string
+	privateKey   *ecdsa.PrivateKey
 }
 
 var config struct {
