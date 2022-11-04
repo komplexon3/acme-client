@@ -128,8 +128,8 @@ func (acme *acmeConfig) finalizeOrder(order *order) (*order, error) {
 		return nil, err
 	}
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
+	body, err1 := io.ReadAll(resp.Body)
+	if err1 != nil {
 		logger.Error("Error reading response body: ", err)
 		return nil, err
 	}
@@ -203,8 +203,7 @@ func (acme *acmeConfig) pollUntilReady(order *order, maxRetries int) error {
 			return nil
 
 		}
-
-		logger.Error("Max retries reached. Order not ready.")
-		return errors.New("Max retries reached. Order not ready.")
 	}
+	logger.Error("Max retries reached. Order not ready.")
+	return errors.New("Max retries reached. Order not ready.")
 }
