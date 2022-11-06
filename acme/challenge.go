@@ -19,7 +19,7 @@ func (acme *acmeConfig) deregisterDNSChallenge(reg *dnsRegistration) error {
 	return nil
 }
 
-func (acme *acmeConfig) registerHTTPChallend(chal *challenge) error {
+func (acme *acmeConfig) registerHTTPChallenge(chal *challenge) error {
 	// TODO
 	return nil
 }

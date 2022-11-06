@@ -9,12 +9,6 @@ import (
 	"gopkg.in/square/go-jose.v2"
 )
 
-type challenge struct {
-	challengeType string `json:"type"`
-	url           string `json:"url"`
-	token         string `json:"token"`
-}
-
 type authorization struct {
 	status           string
 	authorizationURL string

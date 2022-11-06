@@ -17,12 +17,7 @@ func (acme *acmeConfig) doJosePostRequest(endpoint string, protected map[jose.He
 		return nil, err
 	}
 
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return nil, errors.New("Error sending request: " + err.Error())
-	}
-
-	return resp, nil
+	return http.DefaultClient.Do(req)
 }
 
 func (acme *acmeConfig) josePostRequest(endpoint string, protected map[jose.HeaderKey]interface{}, payload interface{}) (*http.Request, error) {
