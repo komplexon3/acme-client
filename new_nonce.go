@@ -20,7 +20,7 @@ func (acme *acmeConfig) fetchNewNote() error {
 	// nonce could be cached leading to us getting badNonce errors
 	req.Header.Add("Cache-Control", "no-store")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := acme.httpClient.Do(req)
 
 	if resp.StatusCode != 200 {
 		return errors.New("NewNonce endpoint returned " + resp.Status)

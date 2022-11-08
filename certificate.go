@@ -3,7 +3,6 @@ package main
 import (
 	"errors"
 	"io"
-	"net/http"
 
 	"gopkg.in/square/go-jose.v2"
 )
@@ -72,7 +71,7 @@ func (acme *acmeConfig) getCertificate(certificateURL string) (*certificate, err
 	req.Header.Set("Accept", "application/pem-certificate-chain")
 	req.Header.Set("Content-Type", "application/jose+json")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := acme.httpClient.Do(req)
 	if err != nil {
 		logger.Error("Error getting certificate: ", err)
 		return nil, err

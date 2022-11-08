@@ -8,6 +8,7 @@ package main
 import (
 	"crypto/ecdsa"
 	"net"
+	"net/http"
 	"os"
 	"strings"
 	"time"
@@ -64,6 +65,7 @@ type acmeConfig struct {
 	privateKey            *ecdsa.PrivateKey
 	dnsProvider           dns.DNSServer
 	httpChallengeProvider acme_http.HTTPServer
+	httpClient            *http.Client
 }
 
 var config struct {

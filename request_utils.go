@@ -3,12 +3,38 @@ package main
 import (
 	"bytes"
 	"crypto/ecdsa"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"errors"
+	"io/ioutil"
 	"net/http"
 
 	"gopkg.in/square/go-jose.v2"
 )
+
+func setupClient(certFilePath string) (*http.Client, error) {
+	rootCAs, _ := x509.SystemCertPool()
+	if rootCAs == nil {
+		rootCAs = x509.NewCertPool()
+	}
+
+	certs, err := ioutil.ReadFile(certFilePath)
+	if err != nil {
+		return nil, errors.New("Failed to append " + certFilePath + " to RootCAs: " + err.Error())
+	}
+
+	if ok := rootCAs.AppendCertsFromPEM(certs); !ok {
+		return nil, errors.New("Failed t append " + certFilePath + " to RootCAs")
+	}
+	// Trust the augmented cert pool in our client
+	config := &tls.Config{
+		InsecureSkipVerify: false,
+		RootCAs:            rootCAs,
+	}
+	client := &http.Client{Transport: &http.Transport{TLSClientConfig: config}}
+	return client, nil
+}
 
 func (acme *acmeConfig) doJosePostRequest(endpoint string, protected map[jose.HeaderKey]interface{}, payload interface{}) (*http.Response, error) {
 	protected[jose.HeaderKey("url")] = endpoint
@@ -17,7 +43,7 @@ func (acme *acmeConfig) doJosePostRequest(endpoint string, protected map[jose.He
 		return nil, err
 	}
 
-	return http.DefaultClient.Do(req)
+	return acme.httpClient.Do(req)
 }
 
 func (acme *acmeConfig) josePostRequest(endpoint string, protected map[jose.HeaderKey]interface{}, payload interface{}) (*http.Request, error) {

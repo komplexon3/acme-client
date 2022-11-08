@@ -18,7 +18,7 @@ func (acme *acmeConfig) getAndSetDirectory() error {
 		return err
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := acme.httpClient.Do(req)
 
 	if resp.StatusCode != 200 {
 		return errors.New("Directory request returned error" + resp.Status)
