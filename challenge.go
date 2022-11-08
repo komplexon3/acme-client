@@ -26,7 +26,7 @@ func computeKeyauthorization(token string, key *ecdsa.PrivateKey) string {
 	return token + "." + base64.RawURLEncoding.EncodeToString(jwkThumbprint)
 }
 
-func (acme *acmeConfig) registerDNSChallenge(domain string, chal *challenge) error {
+func (acme *acmeClient) registerDNSChallenge(domain string, chal *challenge) error {
 	entry := "_acme-challenge." + domain
 	challengeString := computeKeyauthorization(chal.token, acme.privateKey)
 	if challengeString == "" {
@@ -36,12 +36,12 @@ func (acme *acmeConfig) registerDNSChallenge(domain string, chal *challenge) err
 	return acme.dnsProvider.AddTXTRecord(entry, challengeString)
 }
 
-func (acme *acmeConfig) deregisterDNSChallenge(domain string) error {
+func (acme *acmeClient) deregisterDNSChallenge(domain string) error {
 	entry := "_acme-challenge." + domain
 	return acme.dnsProvider.DelTXTRecord(entry)
 }
 
-func (acme *acmeConfig) registerHTTPChallenge(chal *challenge) error {
+func (acme *acmeClient) registerHTTPChallenge(chal *challenge) error {
 	challengeString := computeKeyauthorization(chal.token, acme.privateKey)
 	if challengeString == "" {
 		return errors.New("Error computing key authorization")
@@ -50,6 +50,6 @@ func (acme *acmeConfig) registerHTTPChallenge(chal *challenge) error {
 	return acme.httpChallengeProvider.AddChallengePath(chal.token, challengeString)
 }
 
-func (acme *acmeConfig) deregisterHTTPChallenge(chal *challenge) error {
+func (acme *acmeClient) deregisterHTTPChallenge(chal *challenge) error {
 	return acme.httpChallengeProvider.DelChallengePath(chal.token)
 }

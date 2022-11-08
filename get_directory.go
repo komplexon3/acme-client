@@ -3,32 +3,34 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 )
 
-func (acme *acmeConfig) getAndSetDirectory() error {
-	logger := acme.logger.WithField("method", "GetAndSetDirectory")
-	if acme.dir == "" {
-		return errors.New("Directory URL not set")
+func getDirectory(client http.Client, dir string) (*acmeEndpoints, error) {
+	if dir == "" {
+		return nil, errors.New("Directory URL not set")
 	}
 
-	req, err := http.NewRequest("GET", acme.dir, nil)
+	req, err := http.NewRequest("GET", dir, nil)
 	if err != nil {
-		logger.WithError(err).Error("Error creating request")
-		return err
+		return nil, err
 	}
 
-	resp, err := acme.httpClient.Do(req)
+	resp, err := client.Do(req)
+
+	if err != nil {
+		return nil, err
+	}
 
 	if resp.StatusCode != 200 {
-		return errors.New("Directory request returned error" + resp.Status)
+		return nil, fmt.Errorf("Directory request returned error %s", resp.Status)
 	}
 
-	var endpoint acmeEndpoints
-	if err := json.NewDecoder(resp.Body).Decode(&endpoint); err != nil {
-		logger.WithError(err).Error("Error decoding response")
-		return err
+	var endpoints *acmeEndpoints
+	if err := json.NewDecoder(resp.Body).Decode(endpoints); err != nil {
+		return nil, err
 	}
 
-	return nil
+	return endpoints, nil
 }

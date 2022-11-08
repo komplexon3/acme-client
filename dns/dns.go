@@ -16,7 +16,7 @@ type DNSServer struct {
 	aReponse net.IP
 }
 
-func InitDNSServer(logger *logrus.Entry, aResponse net.IP) *DNSServer {
+func InitDNSProvider(logger *logrus.Entry, aResponse net.IP) *DNSServer {
 	dnsStore := store.RunStore()
 	dnsServer := &DNSServer{
 		server: &miekg_dns.Server{

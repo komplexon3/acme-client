@@ -36,7 +36,7 @@ func setupClient(certFilePath string) (*http.Client, error) {
 	return client, nil
 }
 
-func (acme *acmeConfig) doJosePostRequest(endpoint string, protected map[jose.HeaderKey]interface{}, payload interface{}) (*http.Response, error) {
+func (acme *acmeClient) doJosePostRequest(endpoint string, protected map[jose.HeaderKey]interface{}, payload interface{}) (*http.Response, error) {
 	protected[jose.HeaderKey("url")] = endpoint
 	req, err := acme.josePostRequest(endpoint, protected, payload)
 	if err != nil {
@@ -46,7 +46,7 @@ func (acme *acmeConfig) doJosePostRequest(endpoint string, protected map[jose.He
 	return acme.httpClient.Do(req)
 }
 
-func (acme *acmeConfig) josePostRequest(endpoint string, protected map[jose.HeaderKey]interface{}, payload interface{}) (*http.Request, error) {
+func (acme *acmeClient) josePostRequest(endpoint string, protected map[jose.HeaderKey]interface{}, payload interface{}) (*http.Request, error) {
 	var body []byte
 	var err error
 	if body, err = json.Marshal(payload); err != nil {
@@ -69,7 +69,7 @@ func (acme *acmeConfig) josePostRequest(endpoint string, protected map[jose.Head
 }
 
 // TODO: write with your own JOSE implementation
-func (acme *acmeConfig) signPayload(payload []byte, headers map[jose.HeaderKey]interface{}, privateKey *ecdsa.PrivateKey) (*jose.JSONWebSignature, error) {
+func (acme *acmeClient) signPayload(payload []byte, headers map[jose.HeaderKey]interface{}, privateKey *ecdsa.PrivateKey) (*jose.JSONWebSignature, error) {
 	alg := jose.ES256 // no clue but using ES256 bc that's in the RFC examples
 	NS := NonceSource{acmeConf: acme}
 
@@ -93,7 +93,7 @@ func (acme *acmeConfig) signPayload(payload []byte, headers map[jose.HeaderKey]i
 // comply to jose.NoneSource
 
 type NonceSource struct {
-	acmeConf *acmeConfig
+	acmeConf *acmeClient
 }
 
 func (ns *NonceSource) Nonce() (string, error) {

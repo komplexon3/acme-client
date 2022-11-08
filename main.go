@@ -7,6 +7,8 @@ package main
 
 import (
 	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
 	"net"
 	"net/http"
 	"os"
@@ -55,24 +57,61 @@ type acmeEndpoints struct {
 	KeyChange  string `json:"keyChange"`
 }
 
-type acmeConfig struct {
+type acmeClient struct {
 	dir                   string
 	endpoints             acmeEndpoints
 	currentNonce          string
-	logger                *logrus.Logger
+	logger                *logrus.Entry
 	accountURL            string
-	orders                []order
+	orders                []Order
 	privateKey            *ecdsa.PrivateKey
-	dnsProvider           dns.DNSServer
-	httpChallengeProvider acme_http.HTTPServer
+	dnsProvider           *dns.DNSServer
+	httpChallengeProvider *acme_http.HTTPServer
 	httpClient            *http.Client
 }
 
-var config struct {
+type config struct {
 	Dir    string   `long:"dir" description:"Directory URL of the ACME server that should be used." required:"true"`
 	Record string   `long:"record" description:"IPv4 address which must be returned by your DNS server for all A-record queries." required:"true"`
 	Domain []string `long:"domain" description:"Domain for which to request the certificate. If multiple --domain flags are present, a single certificate for multiple domains should be requested. Wildcard domains have no special flag and are simply denoted by, e.g., *.example.net." required:"true"`
 	Revoke bool     `long:"revoke" description:"If present, your application should immediately revoke the certificate after obtaining it. In both cases, your application should start its HTTPS server and set it up to use the newly obtained certificate."`
+}
+
+func setup(logger *logrus.Entry, mode ChallengeType, conf config) *acmeClient {
+	acmeClient := acmeClient{
+		logger:       logger,
+		currentNonce: "",
+		accountURL:   "",
+		orders:       []Order{},
+	}
+
+	client, err := setupClient("/project/pebble.minica.pem")
+	if err != nil {
+		logger.Fatalf("Error setting up client: %v", err)
+	}
+
+	acmeClient.httpClient = client
+
+	// get directory
+	endpoints, err := getDirectory(*client, conf.Dir)
+	if err != nil {
+		logger.Fatalf("Error getting directory: %v", err)
+	}
+	acmeClient.endpoints = *endpoints
+
+	acmeClient.privateKey, err = ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		logger.Fatalf("Error generating key: %v", err)
+	}
+
+	dnsServerLogger := logger.WithField("server", "dns-challenge")
+	acmeClient.dnsProvider = dns.InitDNSProvider(dnsServerLogger, net.ParseIP(conf.Record))
+
+	httpServerLogger := logger.WithField("server", "http-challenge")
+	acmeClient.httpChallengeProvider = acme_http.InitHTTPProvider(httpServerLogger)
+
+	return &acmeClient
+
 }
 
 func main() {
@@ -85,46 +124,33 @@ func main() {
 	}
 
 	var mode ChallengeType = ChallengeType(os.Args[1])
-	var parser = flags.NewParser(&config, flags.Default)
+	var conf config
+	var parser = flags.NewParser(&conf, flags.Default)
 
 	if mode != DNS01 && mode != HTTP01 {
-		println("Challenge type must be dns01 or http01")
-		os.Exit(1)
+		loggerBase.Fatal("Challenge type must be dns01 or http01")
 	}
 
 	if _, err := parser.Parse(); err != nil {
-		switch flagsErr := err.(type) {
-		case flags.ErrorType:
-			if flagsErr == flags.ErrHelp {
-				os.Exit(0)
-			}
-			os.Exit(1)
-		default:
-			os.Exit(1)
-		}
+		loggerBase.Fatal(err)
 	}
 
 	log := loggerBase.WithFields(logrus.Fields{
 		"mode":   mode,
-		"dir":    config.Dir,
-		"Record": config.Record,
-		"Domain": strings.Join(config.Domain, " "),
-		"Revoke": config.Revoke,
+		"dir":    conf.Dir,
+		"Record": conf.Record,
+		"Domain": strings.Join(conf.Domain, " "),
+		"Revoke": conf.Revoke,
 	})
 
-	// setting up gin (test...)
-	httpSererLogger := log.WithField("server", "http")
-	httpServer := gin.New()
-	httpServer.Use(ginlogrus.Logger(httpSererLogger), gin.Recovery())
-	httpServer.GET("/ping", func(c *gin.Context) {
-		c.String(200, "pong")
-	})
-	go httpServer.Run() // listen and serve on
+	// setup client
+	acmeClient := setup(log, mode, conf)
 
-	// dns
-	dnsServerLogger := log.WithField("server", "dns")
-	dnsServer := dns.InitDNSServer(dnsServerLogger, net.ParseIP(config.Record))
-	go dnsServer.Start()
+	// start dns provider
+	go acmeClient.dnsProvider.Start()
+
+	// start http provider
+	go acmeClient.httpChallengeProvider.Start()
 
 	// create and start shutdown server
 	// when called, it will simply call os.Exit(0) after a 1s delay
@@ -142,7 +168,7 @@ func main() {
 	code := <-shutdownChannel
 	close(shutdownChannel)
 	log.Info("Shutting down...")
-	dnsServer.Stop()
+	acmeClient.dnsProvider.Stop()
 	time.Sleep(1 * time.Second)
 	os.Exit(code)
 }

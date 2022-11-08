@@ -20,7 +20,7 @@ type authorizartionMsg struct {
 	challenges []challenge `json:"challenges"`
 }
 
-func (acme *acmeConfig) getAuthorization(authorizationURL string) (*authorization, error) {
+func (acme *acmeClient) getAuthorization(authorizationURL string) (*authorization, error) {
 	logger := acme.logger.WithField("method", "getAuthorization")
 
 	if authorizationURL == "" {

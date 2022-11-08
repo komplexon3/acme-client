@@ -5,7 +5,7 @@ import (
 	"net/http"
 )
 
-func (acme *acmeConfig) fetchNewNote() error {
+func (acme *acmeClient) fetchNewNote() error {
 	logger := acme.logger.WithField("method", "FetchNewNote")
 	if acme.endpoints.NewNonce == "" {
 		return errors.New("NewNonce endpoint not set")

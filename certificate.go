@@ -11,7 +11,7 @@ type certificate struct {
 	certificate string
 }
 
-func (acme *acmeConfig) getCertificate(certificateURL string) (*certificate, error) {
+func (acme *acmeClient) getCertificate(certificateURL string) (*certificate, error) {
 	/*
 			 POST /acme/cert/mAt3xBGaobw HTTP/1.1
 		   Host: example.com
@@ -88,7 +88,7 @@ func (acme *acmeConfig) getCertificate(certificateURL string) (*certificate, err
 	}, nil
 }
 
-func (acme *acmeConfig) revokeCertificate(certificate *certificate) error {
+func (acme *acmeClient) revokeCertificate(certificate *certificate) error {
 	/*
 			 POST /acme/revoke-cert HTTP/1.1
 		   Host: example.com

@@ -6,7 +6,7 @@ import (
 	"gopkg.in/square/go-jose.v2"
 )
 
-func (acme *acmeConfig) createAccount() error {
+func (acme *acmeClient) createAccount() error {
 	logger := acme.logger.WithField("method", "createAccount")
 	if acme.endpoints.NewAccount == "" {
 		logger.Error("No new account endpoint")

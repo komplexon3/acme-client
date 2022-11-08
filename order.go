@@ -13,7 +13,7 @@ type identifier struct {
 	value          string `json:"identifier"`
 }
 
-type order struct {
+type Order struct {
 	orderURL       string
 	status         string // TODO change to enum
 	authorizations []authorization
@@ -33,7 +33,7 @@ type orderMsg struct {
 	certificate   string       `json:"certificate"`
 }
 
-func (acme *acmeConfig) createOrder(domains []string) (*order, error) {
+func (acme *acmeClient) createOrder(domains []string) (*Order, error) {
 	logger := acme.logger.WithField("method", "createAccount")
 	if acme.endpoints.NewOrder == "" {
 		logger.Error("No new order endpoint")
@@ -90,7 +90,7 @@ func (acme *acmeConfig) createOrder(domains []string) (*order, error) {
 			authorizationURL: authorizationString,
 		})
 	}
-	order := order{
+	order := Order{
 		status:         orderResponse.status,
 		orderURL:       resp.Header.Get("Location"),
 		authorizations: authorizations,
@@ -100,7 +100,7 @@ func (acme *acmeConfig) createOrder(domains []string) (*order, error) {
 	return &order, nil
 }
 
-func (acme *acmeConfig) finalizeOrder(order *order) (*order, error) {
+func (acme *acmeClient) finalizeOrder(order *Order) (*Order, error) {
 	logger := acme.logger.WithField("method", "finalizeOrder")
 
 	if order.finalizeURL == "" {
@@ -151,7 +151,7 @@ func (acme *acmeConfig) finalizeOrder(order *order) (*order, error) {
 	return order, nil
 }
 
-func (acme *acmeConfig) pollUntilReady(order *order, maxRetries int) error {
+func (acme *acmeClient) pollUntilReady(order *Order, maxRetries int) error {
 	logger := acme.logger.WithField("method", "finalizeOrder")
 
 	if order.orderURL == "" {

@@ -17,7 +17,7 @@ type HTTPServer struct {
 	logger *logrus.Entry
 }
 
-func initHTTPServer(logger *logrus.Entry) *HTTPServer {
+func InitHTTPProvider(logger *logrus.Entry) *HTTPServer {
 	server := gin.New()
 	server.Use(ginlogrus.Logger(logger), gin.Recovery())
 
