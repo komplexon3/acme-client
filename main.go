@@ -7,12 +7,14 @@ package main
 
 import (
 	"crypto/ecdsa"
+	"net"
 	"os"
 	"strings"
 	"time"
 
 	flags "github.com/jessevdk/go-flags"
-	"github.com/miekg/dns"
+	"github.com/komplexon3/acme-client/acme_http"
+	"github.com/komplexon3/acme-client/dns"
 
 	gin "github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
@@ -53,13 +55,15 @@ type acmeEndpoints struct {
 }
 
 type acmeConfig struct {
-	dir          string
-	endpoints    acmeEndpoints
-	currentNonce string
-	logger       *logrus.Logger
-	accountURL   string
-	orders       []order
-	privateKey   *ecdsa.PrivateKey
+	dir                   string
+	endpoints             acmeEndpoints
+	currentNonce          string
+	logger                *logrus.Logger
+	accountURL            string
+	orders                []order
+	privateKey            *ecdsa.PrivateKey
+	dnsProvider           dns.DNSServer
+	httpChallengeProvider acme_http.HTTPServer
 }
 
 var config struct {
@@ -115,13 +119,10 @@ func main() {
 	})
 	go httpServer.Run() // listen and serve on
 
-	// setting up and starting the DNS server
-	dnsServer := &dns.Server{
-		Addr: ":10053",
-		Net:  "udp",
-	}
-
-	go dnsServer.ListenAndServe()
+	// dns
+	dnsServerLogger := log.WithField("server", "dns")
+	dnsServer := dns.InitDNSServer(dnsServerLogger, net.ParseIP(config.Record))
+	go dnsServer.Start()
 
 	// create and start shutdown server
 	// when called, it will simply call os.Exit(0) after a 1s delay
@@ -139,7 +140,7 @@ func main() {
 	code := <-shutdownChannel
 	close(shutdownChannel)
 	log.Info("Shutting down...")
-	dnsServer.Shutdown()
+	dnsServer.Stop()
 	time.Sleep(1 * time.Second)
 	os.Exit(code)
 }

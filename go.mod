@@ -1,4 +1,4 @@
-module acme
+module github.com/komplexon3/acme-client
 
 go 1.19
 

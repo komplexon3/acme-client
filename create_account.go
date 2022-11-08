@@ -13,9 +13,11 @@ func (acme *acmeConfig) createAccount() error {
 		return errors.New("NewAccount endpoint not set")
 	}
 
+	jwk := &jose.JSONWebKey{Key: acme.privateKey.Public()}
+
 	payload := map[string]interface{}{}
 	headers := map[jose.HeaderKey]interface{}{
-		jose.HeaderKey("jwk"): acme.privateKey.Public(),
+		jose.HeaderKey("jwk"): jwk,
 	}
 
 	resp, err := acme.doJosePostRequest(acme.endpoints.NewAccount, headers, payload)
