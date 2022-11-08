@@ -9,11 +9,12 @@ import (
 	"errors"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 
 	"gopkg.in/square/go-jose.v2"
 )
 
-func setupClient(certFilePath string) (*http.Client, error) {
+func setupClient(certFilePath string, proxy string) (*http.Client, error) {
 	rootCAs, _ := x509.SystemCertPool()
 	if rootCAs == nil {
 		rootCAs = x509.NewCertPool()
@@ -29,10 +30,19 @@ func setupClient(certFilePath string) (*http.Client, error) {
 	}
 	// Trust the augmented cert pool in our client
 	config := &tls.Config{
-		InsecureSkipVerify: false,
+		InsecureSkipVerify: proxy != "",
 		RootCAs:            rootCAs,
 	}
 	client := &http.Client{Transport: &http.Transport{TLSClientConfig: config}}
+
+	if proxy != "" {
+		proxyURL, err := url.Parse(proxy)
+		if err != nil {
+			return nil, errors.New("Failed to parse proxy URL: " + err.Error())
+		}
+		client.Transport = &http.Transport{TLSClientConfig: config, Proxy: http.ProxyURL(proxyURL)}
+	}
+
 	return client, nil
 }
 

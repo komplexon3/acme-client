@@ -52,7 +52,6 @@ type acmeEndpoints struct {
 	NewNonce   string `json:"newNonce"`
 	NewAccount string `json:"newAccount"`
 	NewOrder   string `json:"newOrder"`
-	NewAuthz   string `json:"newAuthz"`
 	RevokeCert string `json:"revokeCert"`
 	KeyChange  string `json:"keyChange"`
 }
@@ -85,7 +84,7 @@ func setup(logger *logrus.Entry, mode ChallengeType, conf config) *acmeClient {
 		orders:       []Order{},
 	}
 
-	client, err := setupClient("/project/pebble.minica.pem")
+	client, err := setupClient("project/pebble.minica.pem", "http://k3-MBA.local:9090")
 	if err != nil {
 		logger.Fatalf("Error setting up client: %v", err)
 	}

@@ -27,7 +27,7 @@ func getDirectory(client http.Client, dir string) (*acmeEndpoints, error) {
 		return nil, fmt.Errorf("Directory request returned error %s", resp.Status)
 	}
 
-	var endpoints *acmeEndpoints
+	var endpoints *acmeEndpoints = &acmeEndpoints{}
 	if err := json.NewDecoder(resp.Body).Decode(endpoints); err != nil {
 		return nil, err
 	}
