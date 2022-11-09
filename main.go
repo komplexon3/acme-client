@@ -116,6 +116,7 @@ func setup(logger *logrus.Entry, mode ChallengeType, conf config) *acmeClient {
 func main() {
 
 	loggerBase := logrus.New()
+	loggerBase.Level = logrus.DebugLevel
 
 	if len(os.Args) == 1 {
 		println("Usage: acme {dns01 | http01} [options]")
@@ -150,6 +151,103 @@ func main() {
 
 	// start http provider
 	go acmeClient.httpChallengeProvider.Start()
+
+	// create account
+	if err := acmeClient.createAccount(); err != nil {
+		log.Fatalf("Error creating account: %v", err)
+	}
+	log.WithField("account", acmeClient.accountURL).Info("Account created")
+
+	// create order
+
+	order, err := acmeClient.createOrder(conf.Domain)
+	if err != nil {
+		log.Fatalf("Error creating order: %v", err)
+	}
+	log.WithField("order", order).Info("Order created")
+
+	// get authorizations
+	var authorizations []authorization
+	for _, authorization := range order.authorizations {
+		auth, err := acmeClient.getAuthorization(authorization.authorizationURL)
+		if err != nil {
+			log.Fatalf("Error getting authorization: %v", err)
+		}
+		authorizations = append(authorizations, *auth)
+	}
+	order.authorizations = authorizations
+
+	log.WithField("authorizations", authorizations).Info("Authorizations retrieved")
+
+	// select challenges of mathing mode
+	challengeType := func() string {
+		switch mode {
+		case DNS01:
+			return "dns-01"
+		case HTTP01:
+			return "http-01"
+		default:
+			loggerBase.Fatal("Challenge type must be dns01 or http01")
+			return ""
+		}
+	}()
+	var challenges []challenge
+	for _, auth := range authorizations {
+		for _, challenge := range auth.challenges {
+			if challenge.Type == challengeType {
+				challenges = append(challenges, challenge)
+			}
+		}
+	}
+
+	if len(challenges) == 0 {
+		log.Fatal("No challenges mathing the mode found")
+	}
+
+	log.WithField("challenges", len(challenges)).Info("Challenges selected")
+
+	for _, challenge := range challenges {
+		log.Info(challenge)
+	}
+
+	switch mode {
+	case DNS01:
+		// setup dns challenges
+		for _, challenge := range challenges {
+			if err := acmeClient.registerDNSChallenge(conf.Domain[0], &challenge); err != nil {
+				log.Fatalf("Error registering DNS challenge: %v", err)
+			}
+			if err := acmeClient.respondToChallenge(&challenge); err != nil {
+				log.Fatalf("Error responding to challenge: %v", err)
+			}
+		}
+	case HTTP01:
+		// setup http challenges
+		for _, challenge := range challenges {
+			if err := acmeClient.registerHTTPChallenge(&challenge); err != nil {
+				log.Fatalf("Error registering HTTP challenge: %v", err)
+			}
+			if err := acmeClient.respondToChallenge(&challenge); err != nil {
+				log.Fatalf("Error responding to challenge: %v", err)
+			}
+		}
+	}
+
+	// check authorizations
+	// sketchy for now - check dns and http server for trigger later
+	valid := false
+	for !valid {
+		for _, auth := range authorizations {
+			authorizations, err := acmeClient.getAuthorization(auth.authorizationURL)
+			if err != nil {
+				log.Fatalf("Error getting authorization: %v", err)
+			}
+			if authorizations.status == "valid" {
+				valid = true
+			}
+		}
+		time.Sleep(1 * time.Second)
+	}
 
 	// create and start shutdown server
 	// when called, it will simply call os.Exit(0) after a 1s delay

@@ -15,7 +15,9 @@ func (acme *acmeClient) createAccount() error {
 
 	jwk := &jose.JSONWebKey{Key: acme.privateKey.Public()}
 
-	payload := map[string]interface{}{}
+	payload := map[string]interface{}{
+		"termsOfServiceAgreed": true,
+	}
 	headers := map[jose.HeaderKey]interface{}{
 		jose.HeaderKey("jwk"): jwk,
 	}

@@ -76,6 +76,7 @@ func (acme *acmeClient) getCertificate(certificateURL string) (*certificate, err
 		logger.Error("Error getting certificate: ", err)
 		return nil, err
 	}
+	acme.currentNonce = resp.Header.Get("Replay-Nonce")
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {

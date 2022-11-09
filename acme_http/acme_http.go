@@ -21,7 +21,7 @@ func InitHTTPProvider(logger *logrus.Entry) *HTTPServer {
 	server := gin.New()
 	server.Use(ginlogrus.Logger(logger), gin.Recovery())
 
-	httpStore := store.RunStore()
+	httpStore := store.RunStore(logger.WithField("module", "store"))
 
 	httpServer := HTTPServer{
 		server: server,
@@ -40,7 +40,7 @@ func (httpServer *HTTPServer) handleRequest(c *gin.Context) {
 }
 
 func (httpServer *HTTPServer) Start() {
-	httpServer.server.GET("/*", httpServer.handleRequest)
+	httpServer.server.NoRoute(httpServer.handleRequest)
 	httpServer.server.Run(httpServer.port)
 }
 

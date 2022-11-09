@@ -2,7 +2,6 @@ package main
 
 import (
 	"crypto"
-	"crypto/ecdsa"
 	"encoding/base64"
 	"errors"
 
@@ -10,14 +9,14 @@ import (
 )
 
 type challenge struct {
-	challengeType string `json:"type"`
-	url           string `json:"url"`
-	token         string `json:"token"`
+	Type  string `json:"type"`
+	Url   string `json:"url"`
+	Token string `json:"token"`
 }
 
-func computeKeyauthorization(token string, key *ecdsa.PrivateKey) string {
+func computeKeyauthorization(token string, key crypto.PublicKey) string {
 	// in params assuming key is an ecdsa key
-	jwk := jose.JSONWebKey{Key: key.PublicKey}
+	jwk := jose.JSONWebKey{Key: key}
 	jwkThumbprint, err := jwk.Thumbprint(crypto.SHA256)
 	if err != nil {
 		return ""
@@ -28,7 +27,7 @@ func computeKeyauthorization(token string, key *ecdsa.PrivateKey) string {
 
 func (acme *acmeClient) registerDNSChallenge(domain string, chal *challenge) error {
 	entry := "_acme-challenge." + domain
-	challengeString := computeKeyauthorization(chal.token, acme.privateKey)
+	challengeString := computeKeyauthorization(chal.Token, acme.privateKey.Public())
 	if challengeString == "" {
 		return errors.New("Error computing key authorization")
 	}
@@ -42,14 +41,23 @@ func (acme *acmeClient) deregisterDNSChallenge(domain string) error {
 }
 
 func (acme *acmeClient) registerHTTPChallenge(chal *challenge) error {
-	challengeString := computeKeyauthorization(chal.token, acme.privateKey)
+	challengeString := computeKeyauthorization(chal.Token, acme.privateKey)
 	if challengeString == "" {
 		return errors.New("Error computing key authorization")
 	}
 
-	return acme.httpChallengeProvider.AddChallengePath(chal.token, challengeString)
+	return acme.httpChallengeProvider.AddChallengePath(chal.Token, challengeString)
 }
 
 func (acme *acmeClient) deregisterHTTPChallenge(chal *challenge) error {
-	return acme.httpChallengeProvider.DelChallengePath(chal.token)
+	return acme.httpChallengeProvider.DelChallengePath(chal.Token)
+}
+
+func (acme *acmeClient) respondToChallenge(chal *challenge) error {
+	headers := map[jose.HeaderKey]interface{}{
+		jose.HeaderKey("kid"): acme.accountURL,
+	}
+	payload := map[string]interface{}{}
+	_, err := acme.doJosePostRequest(chal.Url, headers, payload)
+	return err
 }

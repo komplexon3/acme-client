@@ -9,8 +9,8 @@ import (
 )
 
 type identifier struct {
-	identifierType string `json:"type"`
-	value          string `json:"identifier"`
+	Type  string `json:"type"`
+	Value string `json:"value"`
 }
 
 type Order struct {
@@ -22,15 +22,15 @@ type Order struct {
 }
 
 type orderPayload struct {
-	identifiers []identifier `json:"identifiers"`
+	Identifiers []identifier `json:"identifiers"`
 }
 
 type orderMsg struct {
-	status        string       `json:"status"`
-	identifiers   []identifier `json:"identifiers"`
-	authorization []string     `json:"authorizations"`
-	finalize      string       `json:"finalize"`
-	certificate   string       `json:"certificate"`
+	Status        string       `json:"status"`
+	Identifiers   []identifier `json:"identifiers"`
+	Authorization []string     `json:"authorizations"`
+	Finalize      string       `json:"finalize"`
+	Certificate   string       `json:"certificate"`
 }
 
 func (acme *acmeClient) createOrder(domains []string) (*Order, error) {
@@ -49,17 +49,19 @@ func (acme *acmeClient) createOrder(domains []string) (*Order, error) {
 
 	for _, domain := range domains {
 		identifiers = append(identifiers, identifier{
-			identifierType: "dns",
-			value:          domain,
+			Type:  "dns",
+			Value: domain,
 		})
 	}
 
 	payload := orderPayload{
-		identifiers: identifiers,
+		Identifiers: identifiers,
 	}
 	headers := map[jose.HeaderKey]interface{}{
 		jose.HeaderKey("kid"): acme.accountURL,
 	}
+
+	logger.WithField("payload", payload).Info("Creating order for domains: ", domains)
 
 	resp, err := acme.doJosePostRequest(acme.endpoints.NewOrder, headers, payload)
 	if err != nil {
@@ -85,16 +87,16 @@ func (acme *acmeClient) createOrder(domains []string) (*Order, error) {
 	}
 
 	var authorizations []authorization
-	for _, authorizationString := range orderResponse.authorization {
+	for _, authorizationString := range orderResponse.Authorization {
 		authorizations = append(authorizations, authorization{
 			authorizationURL: authorizationString,
 		})
 	}
 	order := Order{
-		status:         orderResponse.status,
+		status:         orderResponse.Status,
 		orderURL:       resp.Header.Get("Location"),
 		authorizations: authorizations,
-		finalizeURL:    orderResponse.finalize,
+		finalizeURL:    orderResponse.Finalize,
 	}
 
 	return &order, nil
@@ -145,8 +147,8 @@ func (acme *acmeClient) finalizeOrder(order *Order) (*Order, error) {
 		return nil, err
 	}
 
-	order.status = orderResponse.status
-	order.certificateURL = orderResponse.certificate
+	order.status = orderResponse.Status
+	order.certificateURL = orderResponse.Certificate
 
 	return order, nil
 }
@@ -193,12 +195,12 @@ func (acme *acmeClient) pollUntilReady(order *Order, maxRetries int) error {
 			return err
 		}
 
-		if orderResponse.status != "pending" {
-			logger.Error("Order is not pending. Status: ", orderResponse.status)
+		if orderResponse.Status != "pending" {
+			logger.Error("Order is not pending. Status: ", orderResponse.Status)
 			return errors.New("Order not ready to be polled")
 		}
 
-		if orderResponse.status == "ready" {
+		if orderResponse.Status == "ready" {
 			// the server verified that the authorization is valid
 			return nil
 

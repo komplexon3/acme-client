@@ -16,8 +16,8 @@ type authorization struct {
 }
 
 type authorizartionMsg struct {
-	status     string      `json:"status"`
-	challenges []challenge `json:"challenges"`
+	Status     string      `json:"status"`
+	Challenges []challenge `json:"challenges"`
 }
 
 func (acme *acmeClient) getAuthorization(authorizationURL string) (*authorization, error) {
@@ -38,9 +38,8 @@ func (acme *acmeClient) getAuthorization(authorizationURL string) (*authorizatio
 	}
 
 	// empty payload -> post-as-get
-	payload := map[string]interface{}{}
 
-	resp, err := acme.doJosePostRequest(authorizationURL, headers, payload)
+	resp, err := acme.doJosePostRequest(authorizationURL, headers, nil)
 	body, err1 := io.ReadAll(resp.Body)
 	if err1 != nil {
 		logger.Error("Error reading response body: ", err)
@@ -59,9 +58,9 @@ func (acme *acmeClient) getAuthorization(authorizationURL string) (*authorizatio
 	}
 
 	var auth authorization
-	auth.status = authorizationResponse.status
+	auth.status = authorizationResponse.Status
 	auth.authorizationURL = authorizationURL
-	auth.challenges = authorizationResponse.challenges
+	auth.challenges = authorizationResponse.Challenges
 
 	return &auth, nil
 }

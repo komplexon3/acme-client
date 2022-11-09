@@ -53,13 +53,20 @@ func (acme *acmeClient) doJosePostRequest(endpoint string, protected map[jose.He
 		return nil, err
 	}
 
-	return acme.httpClient.Do(req)
+	resp, err := acme.httpClient.Do(req)
+	if err == nil {
+		acme.currentNonce = resp.Header.Get("Replay-Nonce")
+	}
+
+	return resp, err
 }
 
 func (acme *acmeClient) josePostRequest(endpoint string, protected map[jose.HeaderKey]interface{}, payload interface{}) (*http.Request, error) {
 	var body []byte
 	var err error
-	if body, err = json.Marshal(payload); err != nil {
+	if payload == nil {
+		body = []byte{}
+	} else if body, err = json.Marshal(payload); err != nil {
 		return nil, errors.New("Error marshalling payload " + err.Error())
 	}
 
@@ -115,5 +122,8 @@ func (ns *NonceSource) Nonce() (string, error) {
 		return "", err
 	}
 
-	return ns.acmeConf.currentNonce, nil
+	nonce := ns.acmeConf.currentNonce
+	ns.acmeConf.currentNonce = ""
+
+	return nonce, nil
 }

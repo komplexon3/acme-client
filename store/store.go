@@ -1,5 +1,7 @@
 package store
 
+import "github.com/sirupsen/logrus"
+
 type Store struct {
 	setVal chan struct {
 		key   string
@@ -16,7 +18,7 @@ type Store struct {
 	}
 }
 
-func RunStore() *Store {
+func RunStore(logger *logrus.Entry) *Store {
 	mapping := make(map[string]string)
 
 	store := &Store{
@@ -39,12 +41,15 @@ func RunStore() *Store {
 		for {
 			select {
 			case add := <-store.setVal:
+				logger.Debugf("Adding key %s with value %s", add.key, add.value)
 				mapping[add.key] = add.value
 				add.resp <- nil
 			case del := <-store.delVal:
+				logger.Debugf("Deleting key %s", del.key)
 				delete(mapping, del.key)
 				del.resp <- nil
 			case get := <-store.getVal:
+				logger.Debugf("Getting key %s -> value", get.key, mapping[get.key])
 				get.resp <- mapping[get.key]
 			}
 		}
