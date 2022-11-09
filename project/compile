@@ -1,5 +1,7 @@
 #!/bin/bash
 
+echo "Compiling from this directory:"
+pwd
 go mod download
 go build -o bin/compile
 
