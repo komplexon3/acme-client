@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/base64"
 	"encoding/pem"
 	"errors"
 	"io"
@@ -137,7 +138,7 @@ func (acme *acmeClient) revokeCertificate(certificate *certificate) error {
 	}
 
 	payload := map[string]interface{}{
-		"certificate": rawCert,
+		"certificate": base64.RawURLEncoding.EncodeToString(rawCert),
 	}
 
 	headers := map[string]interface{}{
