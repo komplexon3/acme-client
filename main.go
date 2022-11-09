@@ -75,6 +75,7 @@ type config struct {
 	Record string   `long:"record" description:"IPv4 address which must be returned by your DNS server for all A-record queries." required:"true"`
 	Domain []string `long:"domain" description:"Domain for which to request the certificate. If multiple --domain flags are present, a single certificate for multiple domains should be requested. Wildcard domains have no special flag and are simply denoted by, e.g., *.example.net." required:"true"`
 	Revoke bool     `long:"revoke" description:"If present, your application should immediately revoke the certificate after obtaining it. In both cases, your application should start its HTTPS server and set it up to use the newly obtained certificate."`
+	Proxy  string   `long:"proxy" description:"If present, all outdoing requests will be routed though the procy and TLS will no longer be verified properly."`
 }
 
 func setup(logger *logrus.Entry, mode ChallengeType, conf config) *acmeClient {
@@ -84,12 +85,16 @@ func setup(logger *logrus.Entry, mode ChallengeType, conf config) *acmeClient {
 		accountURL:   "",
 	}
 
-	client, err := setupClient("project/pebble.minica.pem", "http://k3-MBA.local:9090")
+	client, err := setupClient("project/pebble.minica.pem", conf.Proxy)
 	if err != nil {
 		logger.Fatalf("Error setting up client: %v", err)
 	}
 
 	acmeClient.httpClient = client
+
+	print("==========================================\n")
+	print(conf.Proxy)
+	print("\n==========================================\n")
 
 	// get directory
 	endpoints, err := getDirectory(*client, conf.Dir)
