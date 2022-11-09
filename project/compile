@@ -1,3 +1,6 @@
 #!/bin/bash
 
+go mod download
+go build -o bin/compile
+
 echo "Compile your project here"

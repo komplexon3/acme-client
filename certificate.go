@@ -3,8 +3,6 @@ package main
 import (
 	"errors"
 	"io"
-
-	"gopkg.in/square/go-jose.v2"
 )
 
 type certificate struct {
@@ -56,9 +54,9 @@ func (acme *acmeClient) getCertificate(certificateURL string) (*certificate, err
 		return nil, errors.New("Missing account URL - can't set kid")
 	}
 
-	headers := map[jose.HeaderKey]interface{}{
-		jose.HeaderKey("kid"): acme.accountURL,
-		jose.HeaderKey("url"): certificateURL,
+	headers := map[string]interface{}{
+		"kid": acme.accountURL,
+		"url": certificateURL,
 	}
 
 	req, err := acme.josePostRequest(certificateURL, headers, nil)
@@ -124,8 +122,8 @@ func (acme *acmeClient) revokeCertificate(certificate *certificate) error {
 		"certificate": certificate,
 	}
 
-	headers := map[jose.HeaderKey]interface{}{
-		jose.HeaderKey("kid"): acme.accountURL,
+	headers := map[string]interface{}{
+		"kid": acme.accountURL,
 	}
 
 	_, err := acme.doJosePostRequest(acme.endpoints.RevokeCert, headers, payload)

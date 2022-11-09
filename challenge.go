@@ -57,8 +57,8 @@ func (acme *acmeClient) deregisterHTTPChallenge(chal *challenge) error {
 }
 
 func (acme *acmeClient) respondToChallenge(chal *challenge) error {
-	headers := map[jose.HeaderKey]interface{}{
-		jose.HeaderKey("kid"): acme.accountURL,
+	headers := map[string]interface{}{
+		"kid": acme.accountURL,
 	}
 	payload := map[string]interface{}{}
 	_, err := acme.doJosePostRequest(chal.Url, headers, payload)

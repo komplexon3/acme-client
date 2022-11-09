@@ -3,7 +3,7 @@ package main
 import (
 	"errors"
 
-	"gopkg.in/square/go-jose.v2"
+	"github.com/komplexon3/acme-client/jose"
 )
 
 func (acme *acmeClient) createAccount() error {
@@ -13,13 +13,13 @@ func (acme *acmeClient) createAccount() error {
 		return errors.New("NewAccount endpoint not set")
 	}
 
-	jwk := &jose.JSONWebKey{Key: acme.privateKey.Public()}
+	jwk := jose.GetJWK(*acme.privateKey)
 
 	payload := map[string]interface{}{
 		"termsOfServiceAgreed": true,
 	}
-	headers := map[jose.HeaderKey]interface{}{
-		jose.HeaderKey("jwk"): jwk,
+	headers := map[string]interface{}{
+		"jwk": jwk,
 	}
 
 	resp, err := acme.doJosePostRequest(acme.endpoints.NewAccount, headers, payload)

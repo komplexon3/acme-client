@@ -8,8 +8,6 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
-
-	"gopkg.in/square/go-jose.v2"
 )
 
 type identifier struct {
@@ -62,8 +60,8 @@ func (acme *acmeClient) createOrder(domains []string) (*Order, error) {
 	payload := orderPayload{
 		Identifiers: identifiers,
 	}
-	headers := map[jose.HeaderKey]interface{}{
-		jose.HeaderKey("kid"): acme.accountURL,
+	headers := map[string]interface{}{
+		"kid": acme.accountURL,
 	}
 
 	logger.WithField("payload", payload).Info("Creating order for domains: ", domains)
@@ -138,8 +136,8 @@ func (acme *acmeClient) finalizeOrder(order *Order, key *ecdsa.PrivateKey) error
 
 	csrEncoded := base64.RawURLEncoding.EncodeToString(csr)
 
-	headers := map[jose.HeaderKey]interface{}{
-		jose.HeaderKey("kid"): acme.accountURL,
+	headers := map[string]interface{}{
+		"kid": acme.accountURL,
 	}
 	payload := map[string]interface{}{
 		"csr": csrEncoded,
@@ -181,8 +179,8 @@ func (acme *acmeClient) pollUntilReady(order *Order, maxRetries int) error {
 		return errors.New("Missing account URL - can't set kid")
 	}
 
-	headers := map[jose.HeaderKey]interface{}{
-		jose.HeaderKey("kid"): acme.accountURL,
+	headers := map[string]interface{}{
+		"kid": acme.accountURL,
 	}
 
 	for i := 0; i < maxRetries; i++ {

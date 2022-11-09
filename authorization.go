@@ -5,8 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-
-	"gopkg.in/square/go-jose.v2"
 )
 
 type authorization struct {
@@ -33,8 +31,8 @@ func (acme *acmeClient) getAuthorization(authorizationURL string) (*authorizatio
 		return nil, errors.New("Missing account URL - can't set kid")
 	}
 
-	headers := map[jose.HeaderKey]interface{}{
-		jose.HeaderKey("kid"): acme.accountURL,
+	headers := map[string]interface{}{
+		"kid": acme.accountURL,
 	}
 
 	// empty payload -> post-as-get

@@ -2,16 +2,15 @@ package main
 
 import (
 	"bytes"
-	"crypto/ecdsa"
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/json"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/url"
 
-	"gopkg.in/square/go-jose.v2"
+	"github.com/komplexon3/acme-client/jose"
 )
 
 func setupClient(certFilePath string, proxy string) (*http.Client, error) {
@@ -46,8 +45,10 @@ func setupClient(certFilePath string, proxy string) (*http.Client, error) {
 	return client, nil
 }
 
-func (acme *acmeClient) doJosePostRequest(endpoint string, protected map[jose.HeaderKey]interface{}, payload interface{}) (*http.Response, error) {
-	protected[jose.HeaderKey("url")] = endpoint
+func (acme *acmeClient) doJosePostRequest(endpoint string, protected map[string]interface{}, payload interface{}) (*http.Response, error) {
+	protected["nonce"] = acme.currentNonce
+	protected["url"] = endpoint
+
 	req, err := acme.josePostRequest(endpoint, protected, payload)
 	if err != nil {
 		return nil, err
@@ -61,21 +62,23 @@ func (acme *acmeClient) doJosePostRequest(endpoint string, protected map[jose.He
 	return resp, err
 }
 
-func (acme *acmeClient) josePostRequest(endpoint string, protected map[jose.HeaderKey]interface{}, payload interface{}) (*http.Request, error) {
-	var body []byte
-	var err error
-	if payload == nil {
-		body = []byte{}
-	} else if body, err = json.Marshal(payload); err != nil {
-		return nil, errors.New("Error marshalling payload " + err.Error())
+func (acme *acmeClient) josePostRequest(endpoint string, protected map[string]interface{}, payload interface{}) (*http.Request, error) {
+
+	nonce, err := acme.Nonce()
+	if err != nil {
+		return nil, fmt.Errorf("Error getting nonce: %s", err)
 	}
 
-	signedBody, err := acme.signPayload(body, protected, acme.privateKey)
+	jwt := jose.JWT{
+		Header:  protected,
+		Payload: payload,
+	}
+	signedBody, err := jwt.CreateSignedPayload(*acme.privateKey, nonce)
 	if err != nil {
 		return nil, err
 	}
 
-	req, err := http.NewRequest("POST", endpoint, bytes.NewBuffer([]byte(signedBody.FullSerialize())))
+	req, err := http.NewRequest("POST", endpoint, bytes.NewBuffer(signedBody))
 	if err != nil {
 		return nil, errors.New("Failed to create JOSE POST request: " + err.Error())
 	}
@@ -85,45 +88,17 @@ func (acme *acmeClient) josePostRequest(endpoint string, protected map[jose.Head
 	return req, nil
 }
 
-// TODO: write with your own JOSE implementation
-func (acme *acmeClient) signPayload(payload []byte, headers map[jose.HeaderKey]interface{}, privateKey *ecdsa.PrivateKey) (*jose.JSONWebSignature, error) {
-	alg := jose.ES256 // no clue but using ES256 bc that's in the RFC examples
-	NS := NonceSource{acmeConf: acme}
-
-	signer, err := jose.NewSigner(jose.SigningKey{Algorithm: alg, Key: privateKey}, &jose.SignerOptions{
-		NonceSource:  &NS,
-		ExtraHeaders: headers,
-	})
-
-	if err != nil {
-		return nil, errors.New("Error creating signer: " + err.Error())
+func (acmeClient *acmeClient) Nonce() (string, error) {
+	if acmeClient.currentNonce != "" {
+		return acmeClient.currentNonce, nil
 	}
 
-	signedPayload, err := signer.Sign(payload)
-	if err != nil {
-		return nil, errors.New("Error creating signer: " + err.Error())
-	}
-
-	return signedPayload, nil
-}
-
-// comply to jose.NoneSource
-
-type NonceSource struct {
-	acmeConf *acmeClient
-}
-
-func (ns *NonceSource) Nonce() (string, error) {
-	if ns.acmeConf.currentNonce != "" {
-		return ns.acmeConf.currentNonce, nil
-	}
-
-	if err := ns.acmeConf.fetchNewNote(); err != nil {
+	if err := acmeClient.fetchNewNote(); err != nil {
 		return "", err
 	}
 
-	nonce := ns.acmeConf.currentNonce
-	ns.acmeConf.currentNonce = ""
+	nonce := acmeClient.currentNonce
+	acmeClient.currentNonce = ""
 
 	return nonce, nil
 }
