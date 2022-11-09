@@ -1,12 +1,12 @@
 package main
 
 import (
-	"crypto"
+	"crypto/ecdsa"
 	"crypto/sha256"
 	"encoding/base64"
 	"errors"
 
-	"gopkg.in/square/go-jose.v2"
+	"github.com/komplexon3/acme-client/jose"
 )
 
 type challenge struct {
@@ -15,20 +15,17 @@ type challenge struct {
 	Token string `json:"token"`
 }
 
-func computeKeyauthorization(token string, key crypto.PublicKey) string {
+func computeKeyauthorization(token string, key ecdsa.PublicKey) string {
 	// in params assuming key is an ecdsa key
-	jwk := jose.JSONWebKey{Key: key}
-	jwkThumbprint, err := jwk.Thumbprint(crypto.SHA256)
-	if err != nil {
-		return ""
-	}
+	jwk := jose.GetJWK(key)
+	jwkThumbprint := jwk.Thumbprint()
 
 	return token + "." + base64.RawURLEncoding.EncodeToString(jwkThumbprint)
 }
 
 func (acme *acmeClient) registerDNSChallenge(domain string, chal *challenge) error {
 	entry := "_acme-challenge." + domain + "."
-	challengeString := computeKeyauthorization(chal.Token, acme.privateKey.Public())
+	challengeString := computeKeyauthorization(chal.Token, acme.privateKey.PublicKey)
 	if challengeString == "" {
 		return errors.New("Error computing key authorization")
 	}
@@ -44,7 +41,7 @@ func (acme *acmeClient) deregisterDNSChallenge(domain string) error {
 }
 
 func (acme *acmeClient) registerHTTPChallenge(chal *challenge) error {
-	challengeString := computeKeyauthorization(chal.Token, acme.privateKey)
+	challengeString := computeKeyauthorization(chal.Token, acme.privateKey.PublicKey)
 	if challengeString == "" {
 		return errors.New("Error computing key authorization")
 	}

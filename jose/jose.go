@@ -1,12 +1,12 @@
 package jose
 
 import (
-	"crypto"
 	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"strings"
 )
 
@@ -21,6 +21,13 @@ type JWTDTO struct {
 	Signature string `json:"signature"`
 }
 
+type JWK struct {
+	Kty string `json:"kty"`
+	Crv string `json:"crv"`
+	X   string `json:"x"`
+	Y   string `json:"y"`
+}
+
 func SerializeSegment(data interface{}) (string, error) {
 	if data == nil {
 		return "", nil
@@ -33,18 +40,24 @@ func SerializeSegment(data interface{}) (string, error) {
 	return strings.TrimRight(base64.RawURLEncoding.EncodeToString(json), "="), nil
 }
 
-func GetJWK(key ecdsa.PrivateKey) map[string]interface{} {
-	publicKey := key.PublicKey
-	jwk := map[string]interface{}{
-		"kty": "EC",
-		"crv": "P-256",
-		"x":   base64.RawURLEncoding.EncodeToString(publicKey.X.Bytes()),
-		"y":   base64.RawURLEncoding.EncodeToString(publicKey.Y.Bytes()),
+func GetJWK(key ecdsa.PublicKey) *JWK {
+	jwk := &JWK{
+		Kty: "EC",
+		Crv: "P-256",
+		X:   base64.RawURLEncoding.EncodeToString(key.X.Bytes()),
+		Y:   base64.RawURLEncoding.EncodeToString(key.Y.Bytes()),
 	}
 	return jwk
 }
 
-func (jwt *JWT) SignJWT(key crypto.Signer, nonce string) (string, error) {
+func (jwk *JWK) Thumbprint() []byte {
+	thumbprint := fmt.Sprintf(`{"crv":"P-256","kty":"EC","x":"%s","y":"%s"}`, jwk.X, jwk.Y)
+	h := sha256.New()
+	h.Write([]byte(thumbprint))
+	return h.Sum(nil)
+}
+
+func (jwt *JWT) SignJWT(key *ecdsa.PrivateKey, nonce string) (string, error) {
 	header, err := SerializeSegment(jwt.Header)
 	if err != nil {
 		return "", err
@@ -55,10 +68,16 @@ func (jwt *JWT) SignJWT(key crypto.Signer, nonce string) (string, error) {
 	}
 
 	digest := sha256.Sum256([]byte(header + "." + payload))
-	signature, err := key.Sign(rand.Reader, digest[:], crypto.SHA256)
+
+	r, s, err := ecdsa.Sign(rand.Reader, key, digest[:])
 	if err != nil {
 		return "", err
 	}
+
+	signature := make([]byte, 64)
+	r.FillBytes(signature[:32])
+	s.FillBytes(signature[32:])
+
 	enc := base64.RawURLEncoding.EncodeToString(signature)
 	_ = enc
 	return base64.RawURLEncoding.EncodeToString(signature), nil
@@ -77,8 +96,7 @@ func (jwt *JWT) CreateSignedPayload(key ecdsa.PrivateKey, nonce string) ([]byte,
 		return nil, err
 	}
 
-	signingKey := crypto.Signer(&key)
-	signature, err := jwt.SignJWT(signingKey, nonce)
+	signature, err := jwt.SignJWT(&key, nonce)
 	if err != nil {
 		return nil, err
 	}

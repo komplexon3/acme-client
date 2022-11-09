@@ -13,7 +13,7 @@ func (acme *acmeClient) createAccount() error {
 		return errors.New("NewAccount endpoint not set")
 	}
 
-	jwk := jose.GetJWK(*acme.privateKey)
+	jwk := jose.GetJWK(acme.privateKey.PublicKey)
 
 	payload := map[string]interface{}{
 		"termsOfServiceAgreed": true,
