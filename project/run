@@ -5,7 +5,6 @@ cd  "$DIRECTORY" || exit 1
 
 echo "Run your project here."
 pwd
+ls -la
 echo ".."
-cd ..
-pwd
-./bin/compile
+./bin
