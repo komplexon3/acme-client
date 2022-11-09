@@ -250,8 +250,14 @@ func main() {
 		time.Sleep(1 * time.Second)
 	}
 
+	// generate key for certificate
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		log.Fatalf("Error generating key: %v", err)
+	}
+
 	// finalize order
-	if err = acmeClient.finalizeOrder(order); err != nil {
+	if err = acmeClient.finalizeOrder(order, key); err != nil {
 		log.Fatalf("Error finalizing order: %v", err)
 	}
 
@@ -277,7 +283,7 @@ func main() {
 		certFile.Close()
 	}
 
-	rawKey, err := x509.MarshalECPrivateKey(acmeClient.privateKey)
+	rawKey, err := x509.MarshalECPrivateKey(key)
 	if err != nil {
 		log.Fatalf("Error marshalling private key: %v", err)
 	}

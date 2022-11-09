@@ -2,7 +2,6 @@ package main
 
 import (
 	"crypto/ecdsa"
-	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/x509"
 	"encoding/base64"
@@ -109,7 +108,7 @@ func (acme *acmeClient) createOrder(domains []string) (*Order, error) {
 	return &order, nil
 }
 
-func (acme *acmeClient) finalizeOrder(order *Order) error {
+func (acme *acmeClient) finalizeOrder(order *Order, key *ecdsa.PrivateKey) error {
 	logger := acme.logger.WithField("method", "finalizeOrder")
 
 	if order.finalizeURL == "" {
@@ -127,8 +126,6 @@ func (acme *acmeClient) finalizeOrder(order *Order) error {
 	for i, identifier := range order.identifiers {
 		DNSNames[i] = identifier.Value
 	}
-
-	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 
 	csr, err := x509.CreateCertificateRequest(rand.Reader, &x509.CertificateRequest{
 		DNSNames: DNSNames,
