@@ -4,5 +4,8 @@ echo "Changing to ${DIRECTORY}"
 cd  "$DIRECTORY" || exit 1
 
 echo "Run your project here."
+pwd
+echo ".."
 cd ..
+pwd
 ./bin/compile
