@@ -1,12 +1,14 @@
 package main
 
 import (
+	"encoding/pem"
 	"errors"
 	"io"
 )
 
 type certificate struct {
-	certificate string
+	certificateURL string
+	certificate    string
 }
 
 func (acme *acmeClient) getCertificate(certificateURL string) (*certificate, error) {
@@ -82,7 +84,8 @@ func (acme *acmeClient) getCertificate(certificateURL string) (*certificate, err
 	}
 
 	return &certificate{
-		certificate: string(body),
+		certificateURL: certificateURL,
+		certificate:    string(body),
 	}, nil
 }
 
@@ -118,8 +121,23 @@ func (acme *acmeClient) revokeCertificate(certificate *certificate) error {
 		return errors.New("Missing account URL - can't set kid")
 	}
 
+	// extract cert from pem
+	var rawCert []byte
+	var block *pem.Block
+	var rest []byte = []byte(certificate.certificate)
+	for {
+		block, rest = pem.Decode(rest)
+		if block == nil {
+			return errors.New("No certificate found in PEM")
+		}
+		if block.Type == "CERTIFICATE" {
+			rawCert = block.Bytes
+			break
+		}
+	}
+
 	payload := map[string]interface{}{
-		"certificate": certificate,
+		"certificate": rawCert,
 	}
 
 	headers := map[string]interface{}{

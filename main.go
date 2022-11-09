@@ -306,6 +306,7 @@ func main() {
 		keyFile.Close()
 	}
 
+	// setup server with certificate
 	certHttpsLogger := loggerBase.WithFields(logrus.Fields{
 		"server": "cert-https",
 		"cert":   "cert.pem",
@@ -313,6 +314,13 @@ func main() {
 	})
 	certHttpsServer := InitCertServer(certHttpsLogger, "5001", "key.pem", "cert.pem")
 	go certHttpsServer.Start()
+
+	// revoke certificate if requested
+	if conf.Revoke {
+		if err := acmeClient.revokeCertificate(cert); err != nil {
+			log.Fatalf("Error revoking certificate: %v", err)
+		}
+	}
 
 	// create and start shutdown server
 	// when called, it will simply call os.Exit(0) after a 1s delay
