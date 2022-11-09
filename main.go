@@ -85,7 +85,7 @@ func setup(logger *logrus.Entry, mode ChallengeType, conf config) *acmeClient {
 		accountURL:   "",
 	}
 
-	client, err := setupClient("project/pebble.minica.pem", conf.Proxy)
+	client, err := setupClient("pebble.minica.pem", conf.Proxy)
 	if err != nil {
 		logger.Fatalf("Error setting up client: %v", err)
 	}
