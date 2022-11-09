@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto"
+	"crypto/sha256"
 	"encoding/base64"
 	"errors"
 
@@ -26,17 +27,19 @@ func computeKeyauthorization(token string, key crypto.PublicKey) string {
 }
 
 func (acme *acmeClient) registerDNSChallenge(domain string, chal *challenge) error {
-	entry := "_acme-challenge." + domain
+	entry := "_acme-challenge." + domain + "."
 	challengeString := computeKeyauthorization(chal.Token, acme.privateKey.Public())
 	if challengeString == "" {
 		return errors.New("Error computing key authorization")
 	}
+	digest := sha256.Sum256([]byte(challengeString))
+	digestString := base64.RawURLEncoding.EncodeToString(digest[:])
 
-	return acme.dnsProvider.AddTXTRecord(entry, challengeString)
+	return acme.dnsProvider.AddTXTRecord(entry, digestString)
 }
 
 func (acme *acmeClient) deregisterDNSChallenge(domain string) error {
-	entry := "_acme-challenge." + domain
+	entry := "_acme-challenge." + domain + "."
 	return acme.dnsProvider.DelTXTRecord(entry)
 }
 

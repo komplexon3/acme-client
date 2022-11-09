@@ -9,6 +9,8 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/x509"
+	"encoding/pem"
 	"net"
 	"net/http"
 	"os"
@@ -62,7 +64,6 @@ type acmeClient struct {
 	currentNonce          string
 	logger                *logrus.Entry
 	accountURL            string
-	orders                []Order
 	privateKey            *ecdsa.PrivateKey
 	dnsProvider           *dns.DNSServer
 	httpChallengeProvider *acme_http.HTTPServer
@@ -81,7 +82,6 @@ func setup(logger *logrus.Entry, mode ChallengeType, conf config) *acmeClient {
 		logger:       logger,
 		currentNonce: "",
 		accountURL:   "",
-		orders:       []Order{},
 	}
 
 	client, err := setupClient("project/pebble.minica.pem", "http://k3-MBA.local:9090")
@@ -213,6 +213,7 @@ func main() {
 	switch mode {
 	case DNS01:
 		// setup dns challenges
+		// TODO deal with multi domain
 		for _, challenge := range challenges {
 			if err := acmeClient.registerDNSChallenge(conf.Domain[0], &challenge); err != nil {
 				log.Fatalf("Error registering DNS challenge: %v", err)
@@ -248,6 +249,59 @@ func main() {
 		}
 		time.Sleep(1 * time.Second)
 	}
+
+	// finalize order
+	if err = acmeClient.finalizeOrder(order); err != nil {
+		log.Fatalf("Error finalizing order: %v", err)
+	}
+
+	// poll status
+	if err := acmeClient.pollUntilReady(order, 10); err != nil {
+		log.Fatalf("Error polling status: %v", err)
+	}
+
+	// download certificate
+	cert, err := acmeClient.getCertificate(order.certificateURL)
+	if err != nil {
+		log.Fatalf("Error downloading certificate: %v", err)
+	}
+
+	// write certificate and key
+	certFile, err := os.Create("cert.pem")
+	if err != nil {
+		log.Fatalf("Error creating cert.pem: %v", err)
+	}
+	if _, err := certFile.Write([]byte(cert.certificate)); err != nil {
+		log.Fatalf("Error writing certificate: %v", err)
+	} else {
+		certFile.Close()
+	}
+
+	rawKey, err := x509.MarshalECPrivateKey(acmeClient.privateKey)
+	if err != nil {
+		log.Fatalf("Error marshalling private key: %v", err)
+	}
+	block := &pem.Block{
+		Type:  "ECDSA PRIVATE KEY",
+		Bytes: rawKey,
+	}
+	keyFile, err := os.Create("key.pem")
+	if err != nil {
+		log.Fatalf("Error creating key.pem: %v", err)
+	}
+	if err = pem.Encode(keyFile, block); err != nil {
+		log.Fatalf("Error writing private key: %v", err)
+	} else {
+		keyFile.Close()
+	}
+
+	certHttpsLogger := loggerBase.WithFields(logrus.Fields{
+		"server": "cert-https",
+		"cert":   "cert.pem",
+		"key":    "key.pem",
+	})
+	certHttpsServer := InitCertServer(certHttpsLogger, "5001", "key.pem", "cert.pem")
+	go certHttpsServer.Start()
 
 	// create and start shutdown server
 	// when called, it will simply call os.Exit(0) after a 1s delay

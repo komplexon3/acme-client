@@ -1,6 +1,11 @@
 package main
 
 import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/x509"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"io"
@@ -19,6 +24,7 @@ type Order struct {
 	authorizations []authorization
 	finalizeURL    string
 	certificateURL string
+	identifiers    []identifier
 }
 
 type orderPayload struct {
@@ -97,64 +103,76 @@ func (acme *acmeClient) createOrder(domains []string) (*Order, error) {
 		orderURL:       resp.Header.Get("Location"),
 		authorizations: authorizations,
 		finalizeURL:    orderResponse.Finalize,
+		identifiers:    orderResponse.Identifiers,
 	}
 
 	return &order, nil
 }
 
-func (acme *acmeClient) finalizeOrder(order *Order) (*Order, error) {
+func (acme *acmeClient) finalizeOrder(order *Order) error {
 	logger := acme.logger.WithField("method", "finalizeOrder")
 
 	if order.finalizeURL == "" {
 		logger.Error("Something is wrong. No finalize URL for order.")
-		return nil, errors.New("Missing finalize URL")
+		return errors.New("Missing finalize URL")
 	}
 
 	if acme.accountURL == "" {
 		logger.Error("No account URL saved. Create account before finalizing order.")
-		return nil, errors.New("Missing account URL - can't set kid")
+		return errors.New("Missing account URL - can't set kid")
 	}
 
-	csr := "" // TODO figire out how to generate a CSR
+	// we only create dns identifiers so we can assume there are no other types
+	DNSNames := make([]string, len(order.identifiers))
+	for i, identifier := range order.identifiers {
+		DNSNames[i] = identifier.Value
+	}
+
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+
+	csr, err := x509.CreateCertificateRequest(rand.Reader, &x509.CertificateRequest{
+		DNSNames: DNSNames,
+	}, key)
+
+	if err != nil {
+		logger.WithError(err).Error("Error creating CSR")
+		return err
+	}
+
+	csrEncoded := base64.RawURLEncoding.EncodeToString(csr)
 
 	headers := map[jose.HeaderKey]interface{}{
 		jose.HeaderKey("kid"): acme.accountURL,
 	}
 	payload := map[string]interface{}{
-		"csr": csr,
+		"csr": csrEncoded,
 	}
 
 	resp, err := acme.doJosePostRequest(order.finalizeURL, headers, payload)
 	if err != nil {
 		logger.Error("Error finalizing order: ", err)
-		return nil, err
+		return err
 	}
 
 	body, err1 := io.ReadAll(resp.Body)
 	if err1 != nil {
 		logger.Error("Error reading response body: ", err)
-		return nil, err
-	}
-
-	if resp.StatusCode != 200 || resp.StatusCode != 201 {
-		logger.WithField("ErrorDesc", getErrorDetails(string(body))).Error("Error finalizing order: ", resp.Status)
-		return nil, errors.New("Error finalizing order: " + resp.Status)
+		return err
 	}
 
 	var orderResponse orderMsg
 	if err := json.Unmarshal(body, &orderResponse); err != nil {
 		logger.WithError(err).Error("Error unmarshalling order response")
-		return nil, err
+		return err
 	}
 
 	order.status = orderResponse.Status
-	order.certificateURL = orderResponse.Certificate
 
-	return order, nil
+	return nil
 }
 
 func (acme *acmeClient) pollUntilReady(order *Order, maxRetries int) error {
-	logger := acme.logger.WithField("method", "finalizeOrder")
+	logger := acme.logger.WithField("method", "poll until ready")
 
 	if order.orderURL == "" {
 		logger.Error("Something is wrong. No finalize URL for order.")
@@ -169,12 +187,11 @@ func (acme *acmeClient) pollUntilReady(order *Order, maxRetries int) error {
 	headers := map[jose.HeaderKey]interface{}{
 		jose.HeaderKey("kid"): acme.accountURL,
 	}
-	payload := map[string]interface{}{}
 
 	for i := 0; i < maxRetries; i++ {
-		resp, err := acme.doJosePostRequest(order.finalizeURL, headers, payload)
+		resp, err := acme.doJosePostRequest(order.orderURL, headers, nil)
 		if err != nil {
-			logger.Error("Error finalizing order: ", err)
+			logger.Error("Error polling order: ", err)
 			return err
 		}
 
@@ -184,27 +201,23 @@ func (acme *acmeClient) pollUntilReady(order *Order, maxRetries int) error {
 			return err
 		}
 
-		if resp.StatusCode != 200 || resp.StatusCode != 201 {
-			logger.WithField("ErrorDesc", getErrorDetails(string(body))).Error("Error finalizing order: ", resp.Status)
-			return errors.New("Error finalizing order: " + resp.Status)
-		}
-
 		var orderResponse orderMsg
 		if err := json.Unmarshal(body, &orderResponse); err != nil {
 			logger.WithError(err).Error("Error unmarshalling order response")
 			return err
 		}
 
-		if orderResponse.Status != "pending" {
-			logger.Error("Order is not pending. Status: ", orderResponse.Status)
-			return errors.New("Order not ready to be polled")
-		}
-
-		if orderResponse.Status == "ready" {
+		if orderResponse.Status == "valid" {
 			// the server verified that the authorization is valid
+			order.status = orderResponse.Status
+			order.certificateURL = orderResponse.Certificate
 			return nil
-
 		}
+
+		if orderResponse.Status != "processing" {
+			return errors.New("Order is not processing. Status: " + orderResponse.Status)
+		}
+
 	}
 	logger.Error("Max retries reached. Order not ready.")
 	return errors.New("Max retries reached. Order not ready.")

@@ -58,11 +58,10 @@ func (acme *acmeClient) getCertificate(certificateURL string) (*certificate, err
 
 	headers := map[jose.HeaderKey]interface{}{
 		jose.HeaderKey("kid"): acme.accountURL,
+		jose.HeaderKey("url"): certificateURL,
 	}
 
-	payload := map[string]interface{}{}
-
-	req, err := acme.josePostRequest(certificateURL, headers, payload)
+	req, err := acme.josePostRequest(certificateURL, headers, nil)
 	if err != nil {
 		logger.Error("Error creating certificate request: ", err)
 		return nil, err

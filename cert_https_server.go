@@ -7,14 +7,14 @@ import (
 )
 
 type CertHttpsServer struct {
-	server      *gin.Engine
-	key         string // TODO: type probably needs to be changed
-	certificate string // TODO: type probably needs to be changed
-	port        string
-	logger      *logrus.Logger
+	server          *gin.Engine
+	keyFile         string
+	certificateFile string
+	port            string
+	logger          *logrus.Entry
 }
 
-func Init(logger *logrus.Logger, port string, key string, certificate string) *CertHttpsServer {
+func InitCertServer(logger *logrus.Entry, port string, keyFile string, certificateFile string) *CertHttpsServer {
 
 	server := gin.New()
 	server.Use(ginlogrus.Logger(logger), gin.Recovery())
@@ -23,11 +23,11 @@ func Init(logger *logrus.Logger, port string, key string, certificate string) *C
 	})
 
 	certHttpsServer := CertHttpsServer{
-		server:      server,
-		key:         key,
-		certificate: certificate,
-		port:        port,
-		logger:      logger,
+		server:          server,
+		keyFile:         keyFile,
+		certificateFile: certificateFile,
+		port:            port,
+		logger:          logger,
 	}
 
 	return &certHttpsServer
@@ -36,5 +36,5 @@ func Init(logger *logrus.Logger, port string, key string, certificate string) *C
 
 func (c *CertHttpsServer) Start() {
 	// start the server
-	c.server.RunTLS(":"+c.port, c.certificate, c.certificate)
+	c.server.RunTLS(":"+c.port, c.certificateFile, c.keyFile)
 }
