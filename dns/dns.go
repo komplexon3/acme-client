@@ -71,14 +71,14 @@ func (dnsHandler *DNSHandler) ServeDNS(w miekg_dns.ResponseWriter, r *miekg_dns.
 		res := dnsHandler.store.Get(domain)
 		if res != "" {
 			msg.Answer = append(msg.Answer, &miekg_dns.TXT{
-				Hdr: miekg_dns.RR_Header{Name: domain, Rrtype: miekg_dns.TypeTXT, Class: miekg_dns.ClassANY, Ttl: 300},
+				Hdr: miekg_dns.RR_Header{Name: domain, Rrtype: miekg_dns.TypeTXT, Class: miekg_dns.ClassINET, Ttl: 300},
 				Txt: []string{res},
 			})
 		}
 	case miekg_dns.TypeA:
 		domain := msg.Question[0].Name
 		msg.Answer = append(msg.Answer, &miekg_dns.A{
-			Hdr: miekg_dns.RR_Header{Name: domain, Rrtype: miekg_dns.TypeA, Class: miekg_dns.ClassANY, Ttl: 300},
+			Hdr: miekg_dns.RR_Header{Name: domain, Rrtype: miekg_dns.TypeA, Class: miekg_dns.ClassINET, Ttl: 300},
 			A:   dnsHandler.aReponse,
 		})
 	}
