@@ -92,10 +92,12 @@ func setup(logger *logrus.Entry, mode ChallengeType, conf config) *acmeClient {
 
 	acmeClient.httpClient = client
 
-	print("===================================\n")
-	print("= WARNING WARNING WARNING WARNING =\n")
-	print("All traffic is routed through " + conf.Proxy + "and TLS is not verified!\n")
-	print("\n=================================\n")
+	if conf.Proxy != "" {
+		print("===================================\n")
+		print("= WARNING WARNING WARNING WARNING =\n")
+		print("All traffic is routed through " + conf.Proxy + "and TLS is not verified!\n")
+		print("\n=================================\n")
+	}
 
 	// get directory
 	endpoints, err := getDirectory(*client, conf.Dir)
