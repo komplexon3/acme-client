@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"time"
 )
 
 type identifier struct {
@@ -212,7 +213,7 @@ func (acme *acmeClient) pollUntilReady(order *Order, maxRetries int) error {
 		if orderResponse.Status != "processing" {
 			return errors.New("Order is not processing. Status: " + orderResponse.Status)
 		}
-
+		time.Sleep(time.Second)
 	}
 	logger.Error("Max retries reached. Order not ready.")
 	return errors.New("Max retries reached. Order not ready.")

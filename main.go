@@ -92,9 +92,10 @@ func setup(logger *logrus.Entry, mode ChallengeType, conf config) *acmeClient {
 
 	acmeClient.httpClient = client
 
-	print("==========================================\n")
-	print(conf.Proxy)
-	print("\n==========================================\n")
+	print("===================================\n")
+	print("= WARNING WARNING WARNING WARNING =\n")
+	print("All traffic is routed through " + conf.Proxy + "and TLS is not verified!\n")
+	print("\n=================================\n")
 
 	// get directory
 	endpoints, err := getDirectory(*client, conf.Dir)
@@ -196,45 +197,27 @@ func main() {
 			return ""
 		}
 	}()
-	var challenges []challenge
 	for _, auth := range authorizations {
 		for _, challenge := range auth.challenges {
 			if challenge.Type == challengeType {
-				challenges = append(challenges, challenge)
-			}
-		}
-	}
-
-	if len(challenges) == 0 {
-		log.Fatal("No challenges mathing the mode found")
-	}
-
-	log.WithField("challenges", len(challenges)).Info("Challenges selected")
-
-	for _, challenge := range challenges {
-		log.Info(challenge)
-	}
-
-	switch mode {
-	case DNS01:
-		// setup dns challenges
-		// TODO deal with multi domain
-		for _, challenge := range challenges {
-			if err := acmeClient.registerDNSChallenge(conf.Domain[0], &challenge); err != nil {
-				log.Fatalf("Error registering DNS challenge: %v", err)
-			}
-			if err := acmeClient.respondToChallenge(&challenge); err != nil {
-				log.Fatalf("Error responding to challenge: %v", err)
-			}
-		}
-	case HTTP01:
-		// setup http challenges
-		for _, challenge := range challenges {
-			if err := acmeClient.registerHTTPChallenge(&challenge); err != nil {
-				log.Fatalf("Error registering HTTP challenge: %v", err)
-			}
-			if err := acmeClient.respondToChallenge(&challenge); err != nil {
-				log.Fatalf("Error responding to challenge: %v", err)
+				switch mode {
+				case DNS01:
+					// setup dns challenges
+					if err := acmeClient.registerDNSChallenge(auth.identifier.Value, &challenge); err != nil {
+						log.Fatalf("Error registering DNS challenge: %v", err)
+					}
+					if err := acmeClient.respondToChallenge(&challenge); err != nil {
+						log.Fatalf("Error responding to challenge: %v", err)
+					}
+				case HTTP01:
+					// setup http challenges
+					if err := acmeClient.registerHTTPChallenge(&challenge); err != nil {
+						log.Fatalf("Error registering HTTP challenge: %v", err)
+					}
+					if err := acmeClient.respondToChallenge(&challenge); err != nil {
+						log.Fatalf("Error responding to challenge: %v", err)
+					}
+				}
 			}
 		}
 	}

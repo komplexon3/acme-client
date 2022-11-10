@@ -10,12 +10,14 @@ import (
 type authorization struct {
 	status           string
 	authorizationURL string
+	identifier       identifier
 	challenges       []challenge
 }
 
 type authorizartionMsg struct {
 	Status     string      `json:"status"`
 	Challenges []challenge `json:"challenges"`
+	Identifier identifier  `json:"identifier"`
 }
 
 func (acme *acmeClient) getAuthorization(authorizationURL string) (*authorization, error) {
@@ -59,6 +61,7 @@ func (acme *acmeClient) getAuthorization(authorizationURL string) (*authorizatio
 	auth.status = authorizationResponse.Status
 	auth.authorizationURL = authorizationURL
 	auth.challenges = authorizationResponse.Challenges
+	auth.identifier = authorizationResponse.Identifier
 
 	return &auth, nil
 }
