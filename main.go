@@ -177,7 +177,7 @@ func main() {
 	// get authorizations
 	var authorizations []authorization
 	for _, authorization := range order.authorizations {
-		auth, err := acmeClient.getAuthorization(authorization.authorizationURL)
+		auth, _, err := acmeClient.getAuthorization(authorization.authorizationURL)
 		if err != nil {
 			log.Fatalf("Error getting authorization: %v", err)
 		}
@@ -297,6 +297,6 @@ func main() {
 	close(shutdownChannel)
 	log.Info("Shutting down...")
 	acmeClient.dnsProvider.Stop()
-	time.Sleep(1 * time.Second)
+	time.Sleep(time.Second)
 	os.Exit(code)
 }

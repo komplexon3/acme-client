@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strconv"
 	"time"
 )
 
@@ -21,17 +22,18 @@ type authorizartionMsg struct {
 	Identifier identifier  `json:"identifier"`
 }
 
-func (acme *acmeClient) getAuthorization(authorizationURL string) (*authorization, error) {
+func (acme *acmeClient) getAuthorization(authorizationURL string) (*authorization, int, error) {
 	logger := acme.logger.WithField("method", "getAuthorization")
+	retryAfter := 0
 
 	if authorizationURL == "" {
 		logger.Error("No authorization URL")
-		return nil, errors.New("No authorization URL")
+		return nil, retryAfter, errors.New("No authorization URL")
 	}
 
 	if acme.accountURL == "" {
 		logger.Error("No account URL saved. Create account before getting authorization.")
-		return nil, errors.New("Missing account URL - can't set kid")
+		return nil, retryAfter, errors.New("Missing account URL - can't set kid")
 	}
 
 	headers := map[string]interface{}{
@@ -44,18 +46,27 @@ func (acme *acmeClient) getAuthorization(authorizationURL string) (*authorizatio
 	body, err1 := io.ReadAll(resp.Body)
 	if err1 != nil {
 		logger.Error("Error reading response body: ", err)
-		return nil, err
+		return nil, retryAfter, err
 	}
 
 	if err != nil {
 		logger.WithField("ErrorDesc", getErrorDetails(string(body))).Error("Error getting authorization: ", err)
-		return nil, fmt.Errorf("Error getting authorization: %v", err)
+		return nil, retryAfter, fmt.Errorf("Error getting authorization: %v", err)
 	}
 
 	var authorizationResponse authorizartionMsg
 	if err := json.Unmarshal(body, &authorizationResponse); err != nil {
 		logger.WithError(err).Error("Error unmarshalling authorization response")
-		return nil, fmt.Errorf("Error unmarshalling authorization response: %v", err)
+		return nil, retryAfter, fmt.Errorf("Error unmarshalling authorization response: %v", err)
+	}
+
+	// check retry after
+	if retryAfterHeader := resp.Header.Get("Retry-After"); retryAfterHeader != "" {
+		retryAfter, err = strconv.Atoi(retryAfterHeader)
+		if err != nil {
+			logger.WithError(err).Info("Error parsing Retry-After header")
+			retryAfter = 0
+		}
 	}
 
 	var auth authorization
@@ -64,7 +75,7 @@ func (acme *acmeClient) getAuthorization(authorizationURL string) (*authorizatio
 	auth.challenges = authorizationResponse.Challenges
 	auth.identifier = authorizationResponse.Identifier
 
-	return &auth, nil
+	return &auth, retryAfter, nil
 }
 
 func (acme *acmeClient) registerChallenge(auth *authorization, challengeType ChallengeType) (*challenge, chan bool, error) {
@@ -110,7 +121,7 @@ func (acmeClient *acmeClient) pollAuthorization(auth *authorization, maxPoll int
 	valid := false
 	i := 0
 	for !valid && i < maxPoll {
-		_auth, err := acmeClient.getAuthorization(auth.authorizationURL)
+		_auth, retryAfter, err := acmeClient.getAuthorization(auth.authorizationURL)
 		if err != nil {
 			logger.WithError(err).Error("Error getting authorization")
 			return err
@@ -121,7 +132,10 @@ func (acmeClient *acmeClient) pollAuthorization(auth *authorization, maxPoll int
 			valid = true
 			return nil
 		}
-		time.Sleep(time.Second)
+		if retryAfter == 0 {
+			retryAfter = 1
+		}
+		time.Sleep(time.Duration(retryAfter) * time.Second)
 		i++
 	}
 	return fmt.Errorf("Authorization not valid after %d polls", maxPoll)
