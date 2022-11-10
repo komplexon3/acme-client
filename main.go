@@ -185,57 +185,33 @@ func main() {
 
 	log.WithField("authorizations", authorizations).Info("Authorizations retrieved")
 
-	// select challenges of mathing mode
-	challengeType := func() string {
-		switch mode {
-		case DNS01:
-			return "dns-01"
-		case HTTP01:
-			return "http-01"
-		default:
-			loggerBase.Fatal("Challenge type must be dns01 or http01")
-			return ""
-		}
-	}()
+	// register challenges
+	var challenges []*challenge
 	for _, auth := range authorizations {
-		for _, challenge := range auth.challenges {
-			if challenge.Type == challengeType {
-				switch mode {
-				case DNS01:
-					// setup dns challenges
-					if err := acmeClient.registerDNSChallenge(auth.identifier.Value, &challenge); err != nil {
-						log.Fatalf("Error registering DNS challenge: %v", err)
-					}
-					if err := acmeClient.respondToChallenge(&challenge); err != nil {
-						log.Fatalf("Error responding to challenge: %v", err)
-					}
-				case HTTP01:
-					// setup http challenges
-					if err := acmeClient.registerHTTPChallenge(&challenge); err != nil {
-						log.Fatalf("Error registering HTTP challenge: %v", err)
-					}
-					if err := acmeClient.respondToChallenge(&challenge); err != nil {
-						log.Fatalf("Error responding to challenge: %v", err)
-					}
-				}
-			}
+		challenge, err := acmeClient.registerChallenge(&auth, mode)
+		if err != nil {
+			log.Fatalf("Error registering challenge: %v", err)
 		}
+		challenges = append(challenges, challenge)
+		log.WithField("challenge", challenge).Info("Challenge registered")
+	}
+
+	// respond to challenges
+
+	for _, challenge := range challenges {
+		if err := acmeClient.respondToChallenge(challenge); err != nil {
+			log.Fatalf("Error responding to challenge: %v", err)
+		}
+		log.WithField("challenge", challenge).Info("Challenge responded to")
 	}
 
 	// check authorizations
 	// sketchy for now - check dns and http server for trigger later
-	valid := false
-	for !valid {
-		for _, auth := range authorizations {
-			authorizations, err := acmeClient.getAuthorization(auth.authorizationURL)
-			if err != nil {
-				log.Fatalf("Error getting authorization: %v", err)
-			}
-			if authorizations.status == "valid" {
-				valid = true
-			}
+	for _, auth := range authorizations {
+		if err := acmeClient.pollAuthorization(&auth, 10); err != nil {
+			log.Fatalf("Error polling authorization: %v", err)
 		}
-		time.Sleep(1 * time.Second)
+		log.WithField("authorization", auth).Info("Authorization complete")
 	}
 
 	// generate key for certificate

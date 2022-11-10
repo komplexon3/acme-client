@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"time"
 )
 
 type authorization struct {
@@ -64,4 +65,64 @@ func (acme *acmeClient) getAuthorization(authorizationURL string) (*authorizatio
 	auth.identifier = authorizationResponse.Identifier
 
 	return &auth, nil
+}
+
+func (acme *acmeClient) registerChallenge(auth *authorization, challengeType ChallengeType) (*challenge, error) {
+	logger := acme.logger.WithField("method", "registerChallenge")
+
+	chalType := func() string {
+		switch challengeType {
+		case DNS01:
+			return "dns-01"
+		case HTTP01:
+			return "http-01"
+		default:
+			logger.Fatal("Challenge type must be dns01 or http01")
+			return ""
+		}
+	}()
+
+	for _, chal := range auth.challenges {
+		if chal.Type == chalType {
+			if chal.Type == "dns-01" {
+				if err := acme.registerDNSChallenge(auth.identifier.Value, &chal); err != nil {
+					logger.WithError(err).Error("Error registering DNS challenge")
+					return nil, err
+				} else {
+					return &chal, nil
+				}
+			} else if chal.Type == "http-01" {
+				if err := acme.registerHTTPChallenge(&chal); err != nil {
+					logger.WithError(err).Error("Error registering HTTP challenge")
+					return nil, err
+				} else {
+					return &chal, nil
+				}
+			}
+		}
+	}
+	return nil, fmt.Errorf("No challenge of type %s found", chalType)
+}
+
+func (acmeClient *acmeClient) pollAuthorization(auth *authorization, maxPoll int) error {
+	logger := acmeClient.logger.WithField("method", "pollAuthorization")
+
+	valid := false
+	i := 0
+	for !valid && i < maxPoll {
+		_auth, err := acmeClient.getAuthorization(auth.authorizationURL)
+		if err != nil {
+			logger.WithError(err).Error("Error getting authorization")
+			return err
+		}
+
+		auth.status = _auth.status
+		if auth.status == "valid" {
+			valid = true
+			return nil
+		}
+		time.Sleep(time.Second)
+		i++
+	}
+	return fmt.Errorf("Authorization not valid after %d polls", maxPoll)
 }
