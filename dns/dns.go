@@ -45,7 +45,7 @@ func InitDNSProvider(logger *logrus.Entry, aResponse net.IP) *DNSServer {
 	return dnsServer
 }
 
-func (dnsServer *DNSServer) AddTXTRecord(domain string, value string) error {
+func (dnsServer *DNSServer) AddTXTRecord(domain string, value string) (chan bool, error) {
 	return dnsServer.store.Set(domain, value)
 }
 

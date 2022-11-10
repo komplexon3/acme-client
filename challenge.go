@@ -23,11 +23,11 @@ func computeKeyauthorization(token string, key ecdsa.PublicKey) string {
 	return token + "." + base64.RawURLEncoding.EncodeToString(jwkThumbprint)
 }
 
-func (acme *acmeClient) registerDNSChallenge(domain string, chal *challenge) error {
+func (acme *acmeClient) registerDNSChallenge(domain string, chal *challenge) (chan bool, error) {
 	entry := "_acme-challenge." + domain + "."
 	challengeString := computeKeyauthorization(chal.Token, acme.privateKey.PublicKey)
 	if challengeString == "" {
-		return errors.New("Error computing key authorization")
+		return nil, errors.New("Error computing key authorization")
 	}
 	digest := sha256.Sum256([]byte(challengeString))
 	digestString := base64.RawURLEncoding.EncodeToString(digest[:])
@@ -40,10 +40,10 @@ func (acme *acmeClient) deregisterDNSChallenge(domain string) error {
 	return acme.dnsProvider.DelTXTRecord(entry)
 }
 
-func (acme *acmeClient) registerHTTPChallenge(chal *challenge) error {
+func (acme *acmeClient) registerHTTPChallenge(chal *challenge) (chan bool, error) {
 	challengeString := computeKeyauthorization(chal.Token, acme.privateKey.PublicKey)
 	if challengeString == "" {
-		return errors.New("Error computing key authorization")
+		return nil, errors.New("Error computing key authorization")
 	}
 
 	return acme.httpChallengeProvider.AddChallengePath(chal.Token, challengeString)

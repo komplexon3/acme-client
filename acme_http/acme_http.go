@@ -44,7 +44,7 @@ func (httpServer *HTTPServer) Start() {
 	httpServer.server.Run(httpServer.port)
 }
 
-func (httpServer *HTTPServer) AddChallengePath(challengePath string, value string) error {
+func (httpServer *HTTPServer) AddChallengePath(challengePath string, value string) (chan bool, error) {
 	return httpServer.store.Set(challengePath, value)
 }
 

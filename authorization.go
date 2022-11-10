@@ -67,7 +67,7 @@ func (acme *acmeClient) getAuthorization(authorizationURL string) (*authorizatio
 	return &auth, nil
 }
 
-func (acme *acmeClient) registerChallenge(auth *authorization, challengeType ChallengeType) (*challenge, error) {
+func (acme *acmeClient) registerChallenge(auth *authorization, challengeType ChallengeType) (*challenge, chan bool, error) {
 	logger := acme.logger.WithField("method", "registerChallenge")
 
 	chalType := func() string {
@@ -85,23 +85,23 @@ func (acme *acmeClient) registerChallenge(auth *authorization, challengeType Cha
 	for _, chal := range auth.challenges {
 		if chal.Type == chalType {
 			if chal.Type == "dns-01" {
-				if err := acme.registerDNSChallenge(auth.identifier.Value, &chal); err != nil {
+				if tripwire, err := acme.registerDNSChallenge(auth.identifier.Value, &chal); err != nil {
 					logger.WithError(err).Error("Error registering DNS challenge")
-					return nil, err
+					return nil, nil, err
 				} else {
-					return &chal, nil
+					return &chal, tripwire, nil
 				}
 			} else if chal.Type == "http-01" {
-				if err := acme.registerHTTPChallenge(&chal); err != nil {
+				if tripwire, err := acme.registerHTTPChallenge(&chal); err != nil {
 					logger.WithError(err).Error("Error registering HTTP challenge")
-					return nil, err
+					return nil, nil, err
 				} else {
-					return &chal, nil
+					return &chal, tripwire, nil
 				}
 			}
 		}
 	}
-	return nil, fmt.Errorf("No challenge of type %s found", chalType)
+	return nil, nil, fmt.Errorf("No challenge of type %s found", chalType)
 }
 
 func (acmeClient *acmeClient) pollAuthorization(auth *authorization, maxPoll int) error {

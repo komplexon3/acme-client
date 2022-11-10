@@ -187,7 +187,7 @@ func main() {
 
 	// register challenges, respond to them, poll their authorization, and deregister them
 	for _, auth := range authorizations {
-		challenge, err := acmeClient.registerChallenge(&auth, mode)
+		challenge, tripwire, err := acmeClient.registerChallenge(&auth, mode)
 		if err != nil {
 			log.Fatalf("Error registering challenge: %v", err)
 		}
@@ -195,6 +195,11 @@ func main() {
 		if err := acmeClient.respondToChallenge(challenge); err != nil {
 			log.Fatalf("Error responding to challenge: %v", err)
 		}
+
+		// wait until the challenge is verified before continuing
+		//<-tripwire
+		_ = tripwire
+
 		log.WithField("challenge", challenge).Info("Responded to challenge")
 		if err := acmeClient.pollAuthorization(&auth, 10); err != nil {
 			log.Fatalf("Error polling authorization: %v", err)
