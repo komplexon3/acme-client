@@ -61,3 +61,12 @@ func (acme *acmeClient) respondToChallenge(chal *challenge) error {
 	_, err := acme.doJosePostRequest(chal.Url, headers, payload)
 	return err
 }
+func (acme *acmeClient) deregisterChallenge(chal *challenge) error {
+	switch chal.Type {
+	case "dns-01":
+		return acme.deregisterDNSChallenge(chal.Token)
+	case "http-01":
+		return acme.deregisterHTTPChallenge(chal)
+	}
+	return errors.New("Unsupported challenge type")
+}
