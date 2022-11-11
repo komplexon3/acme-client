@@ -203,7 +203,7 @@ func main() {
 		//_ = tripwire
 
 		log.WithField("challenge", challenge).Info("Responded to challenge")
-		if err := acmeClient.pollAuthorization(&auth, 10); err != nil {
+		if err := acmeClient.pollAuthorization(&auth, 25); err != nil {
 			log.Fatalf("Error polling authorization: %v", err)
 		}
 		log.WithField("authorization", auth).Info("Authorization complete")
@@ -225,7 +225,7 @@ func main() {
 	}
 
 	// poll status
-	if err := acmeClient.pollUntilReady(order, 10); err != nil {
+	if err := acmeClient.pollUntilReady(order, 25); err != nil {
 		log.Fatalf("Error polling status: %v", err)
 	}
 
