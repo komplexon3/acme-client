@@ -199,8 +199,8 @@ func main() {
 		}
 
 		// wait until the challenge is verified before continuing
-		//<-tripwire
-		_ = tripwire
+		<-tripwire
+		//_ = tripwire
 
 		log.WithField("challenge", challenge).Info("Responded to challenge")
 		if err := acmeClient.pollAuthorization(&auth, 10); err != nil {
